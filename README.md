@@ -122,6 +122,17 @@ java -jar target\Client.jar
 No cliente, use o mesmo nome do certificado assinado. Por exemplo, se o arquivo
 for `alice.cert`, o usuario do login deve ser `alice`.
 
+Se aparecer erro dizendo que o certificado nao foi encontrado, gere o
+certificado do usuario no modulo `Broker`:
+
+```powershell
+cd Broker
+java -cp target\Broker.jar com.mycompany.broker.CertificateTool sign-client alice
+```
+
+O nome usado no login precisa ser igual ao nome do arquivo `.cert`. Para o
+exemplo acima, o login deve ser `alice`.
+
 ## Fluxo de conexao
 
 1. O broker inicia a porta TCP `5000` e a descoberta UDP `5001`.

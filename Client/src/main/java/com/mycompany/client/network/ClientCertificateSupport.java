@@ -27,7 +27,8 @@ final class ClientCertificateSupport {
      */
     static String loadClientCertificate(String clientName) throws IOException {
         String safeName = safeFileName(clientName);
-        for (Path baseDirectory : certificateSearchDirectories()) {
+        List<Path> searchDirectories = certificateSearchDirectories();
+        for (Path baseDirectory : searchDirectories) {
             Path direct = baseDirectory.resolve(safeName + ".cert");
             Path nested = baseDirectory.resolve("clientes").resolve(safeName + ".cert");
             if (Files.isRegularFile(direct)) {
@@ -38,8 +39,8 @@ final class ClientCertificateSupport {
             }
         }
 
-        throw new IOException("Certificado do cliente nao encontrado. Procure por "
-                + safeName + ".cert na pasta certificados/clientes do Client.jar.");
+        throw new IOException("Certificado do cliente nao encontrado: " + safeName
+                + ".cert. Pastas verificadas: " + searchDirectories);
     }
 
     /**
@@ -51,12 +52,21 @@ final class ClientCertificateSupport {
         List<Path> directories = new ArrayList<>();
         Path appDirectory = applicationDirectory();
         Path userDirectory = Path.of(System.getProperty("user.dir"));
+
+        /*
+         * Em execucao pelo JAR, appDirectory normalmente aponta para Client/target.
+         * Em execucao pelo NetBeans/Maven, ele pode apontar para
+         * Client/target/classes. Por isso tambem verificamos o pai.
+         */
         addCertificateDirectory(directories, appDirectory);
+        addCertificateDirectory(directories, appDirectory.getParent());
         addCertificateDirectory(directories, userDirectory);
+        addCertificateDirectory(directories, userDirectory.resolve("target"));
 
         Path parent = userDirectory.getParent();
         if (parent != null) {
             addCertificateDirectory(directories, parent.resolve("Broker"));
+            addCertificateDirectory(directories, parent.resolve("Broker").resolve("target"));
             addCertificateDirectory(directories, parent.resolve("Broker").resolve("target").resolve("classes"));
         }
         return directories;
