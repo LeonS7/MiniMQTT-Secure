@@ -1,0 +1,20 @@
+# Maven/build outputs
+target/
+.m2/
+
+# NetBeans local metadata
+nbproject/private/
+build/
+dist/
+
+# Generated certificates, keys and local broker data
+certificados/
+**/certificados/
+*.key
+*.cert
+usuarios.properties
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+*.log
