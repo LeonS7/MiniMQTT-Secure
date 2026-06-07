@@ -56,8 +56,8 @@ final class ClientCertificateSupport {
 
         Path parent = userDirectory.getParent();
         if (parent != null) {
-            addCertificateDirectory(directories, parent.resolve("Avaliacao_3"));
-            addCertificateDirectory(directories, parent.resolve("Avaliacao_3").resolve("target").resolve("classes"));
+            addCertificateDirectory(directories, parent.resolve("Broker"));
+            addCertificateDirectory(directories, parent.resolve("Broker").resolve("target").resolve("classes"));
         }
         return directories;
     }

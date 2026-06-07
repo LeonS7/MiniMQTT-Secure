@@ -28,7 +28,7 @@ broker e autenticacao do cliente por certificado assinado offline pelo broker.
 
 ```text
 .
-|-- Avaliacao_3/        # modulo Maven do broker
+|-- Broker/             # modulo Maven do broker
 |-- Client/             # modulo Maven do cliente Swing
 |-- README.md
 `-- .gitignore
@@ -36,10 +36,10 @@ broker e autenticacao do cliente por certificado assinado offline pelo broker.
 
 Principais classes:
 
-- `Avaliacao_3/src/main/java/com/mycompany/avaliacao_3/Broker_main.java`
-- `Avaliacao_3/src/main/java/com/mycompany/broker/BrokerServer.java`
-- `Avaliacao_3/src/main/java/com/mycompany/broker/BrokerVerificationService.java`
-- `Avaliacao_3/src/main/java/com/mycompany/broker/CertificateTool.java`
+- `Broker/src/main/java/com/mycompany/avaliacao_3/Broker_main.java`
+- `Broker/src/main/java/com/mycompany/broker/BrokerServer.java`
+- `Broker/src/main/java/com/mycompany/broker/BrokerVerificationService.java`
+- `Broker/src/main/java/com/mycompany/broker/CertificateTool.java`
 - `Client/src/main/java/com/mycompany/client/Client_main.java`
 - `Client/src/main/java/com/mycompany/client/network/BrokerClient.java`
 - `Client/src/main/java/com/mycompany/interfaces/Login_interface.java`
@@ -56,7 +56,7 @@ Principais classes:
 Compile os dois modulos separadamente:
 
 ```powershell
-cd Avaliacao_3
+cd Broker
 mvn -q -DskipTests package
 
 cd ..\Client
@@ -65,7 +65,7 @@ mvn -q -DskipTests package
 
 Os JARs gerados ficam em:
 
-- `Avaliacao_3/target/Broker.jar`
+- `Broker/target/Broker.jar`
 - `Client/target/Client.jar`
 
 ## Certificados da parcial 2
@@ -81,12 +81,12 @@ O broker possui um par de chaves RSA:
 Para criar as chaves do broker e assinar um cliente offline:
 
 ```powershell
-cd Avaliacao_3
+cd Broker
 java -cp target\Broker.jar com.mycompany.broker.CertificateTool init-server
 java -cp target\Broker.jar com.mycompany.broker.CertificateTool sign-client alice
 ```
 
-Esse comando cria arquivos em `Avaliacao_3/target/certificados`, incluindo:
+Esse comando cria arquivos em `Broker/target/certificados`, incluindo:
 
 - `clientes/alice.cert`
 - `clientes/alice.private.key`
@@ -108,7 +108,7 @@ ou a pasta `target`. Esses arquivos ja estao cobertos pelo `.gitignore`.
 Inicie primeiro o broker:
 
 ```powershell
-cd Avaliacao_3
+cd Broker
 java -jar target\Broker.jar
 ```
 
@@ -143,7 +143,7 @@ dos projetos NetBeans:
 git init
 git branch -M main
 git remote add origin https://github.com/LeonS7/MiniMQTT-Secure.git
-git add README.md .gitignore Avaliacao_3 Client
+git add README.md .gitignore Broker Client
 git commit -m "Add MiniMQTT Secure project"
 git push -u origin main
 ```
