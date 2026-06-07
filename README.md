@@ -1,158 +1,247 @@
 # MiniMQTT Secure
 
-Repositorio: https://github.com/LeonS7/MiniMQTT-Secure.git
+![Java](https://img.shields.io/badge/Java-17+-orange)
+![Maven](https://img.shields.io/badge/Maven-3.x-blue)
+![Status](https://img.shields.io/badge/Status-AV3%20Parcial%202-success)
 
-Projeto Java desenvolvido para a avaliacao AV3 de Redes. A aplicacao implementa
-um broker no estilo publish/subscribe e clientes Swing que se conectam ao broker
-para criar topicos, assinar topicos, publicar mensagens e baixar mensagens
-pendentes.
+Implementação de uma infraestrutura de comunicação inspirada no protocolo MQTT (*Message Queuing Telemetry Transport*), desenvolvida em Java para a disciplina de Redes de Computadores (AV3).
 
-Esta versao corresponde a parcial 2 do projeto: interface grafica, multiplos
-topicos por cliente, identificacao de origem das mensagens, bufferizacao no
-broker e autenticacao do cliente por certificado assinado offline pelo broker.
+O projeto utiliza o modelo **Publish/Subscribe**, permitindo que múltiplos clientes se conectem a um broker central para criar tópicos, assinar tópicos, publicar mensagens e recuperar mensagens pendentes. Além disso, esta versão incorpora mecanismos de **autenticação e segurança baseados em certificados digitais assinados pelo broker**.
+
+**Repositório:**
+https://github.com/LeonS7/MiniMQTT-Secure
+
+---
+
+## Objetivos do Projeto
+
+Implementar uma infraestrutura de comunicação semelhante ao MQTT contendo:
+
+* Broker central responsável pelo gerenciamento dos tópicos;
+* Clientes capazes de publicar e consumir mensagens;
+* Modelo Publish/Subscribe;
+* Gerenciamento de mensagens pendentes;
+* Autenticação de usuários;
+* Validação de certificados digitais assinados pelo broker.
+
+---
 
 ## Funcionalidades
 
-- Broker TCP na porta `5000`.
-- Descoberta automatica do broker via UDP na porta `5001`.
-- Cliente com interface Swing para login, criacao de conta, topicos e mensagens.
-- Cliente pode participar de varios topicos ao mesmo tempo.
-- Mensagens exibem cliente remetente e topico de origem.
-- Broker guarda mensagens pendentes ate todos os clientes inscritos baixarem.
-- Cliente solicita automaticamente mensagens pendentes ao conectar.
-- Login e cadastro validados pelo broker.
-- Certificado do cliente assinado offline pela chave privada do broker.
-- Chaves, certificados e usuarios locais ficam fora do Git.
+### Comunicação
 
-## Estrutura
+* Broker TCP na porta `5000`;
+* Descoberta automática do broker via UDP na porta `5001`;
+* Comunicação cliente-servidor baseada em sockets Java;
+* Suporte a múltiplos clientes simultaneamente.
+
+### Publish/Subscribe
+
+* Criação dinâmica de tópicos;
+* Inscrição em múltiplos tópicos;
+* Publicação de mensagens;
+* Entrega de mensagens pendentes;
+* Identificação do remetente e tópico de origem.
+
+### Segurança
+
+* Login e cadastro controlados pelo broker;
+* Certificados digitais de clientes assinados offline;
+* Verificação de autenticidade dos certificados durante o login;
+* Armazenamento local de chaves e certificados fora do controle de versão.
+
+### Interface
+
+* Interface gráfica desenvolvida com Java Swing;
+* Tela de login;
+* Tela principal para gerenciamento de tópicos e mensagens.
+
+---
+
+## Estrutura do Projeto
 
 ```text
 .
-|-- Broker/             # modulo Maven do broker
-|-- Client/             # modulo Maven do cliente Swing
-|-- README.md
-`-- .gitignore
+├── Broker/
+├── Client/
+├── README.md
+└── .gitignore
 ```
 
-Principais classes:
+### Principais Classes
 
-- `Broker/src/main/java/com/mycompany/avaliacao_3/Broker_main.java`
-- `Broker/src/main/java/com/mycompany/broker/BrokerServer.java`
-- `Broker/src/main/java/com/mycompany/broker/BrokerVerificationService.java`
-- `Broker/src/main/java/com/mycompany/broker/CertificateTool.java`
-- `Client/src/main/java/com/mycompany/client/Client_main.java`
-- `Client/src/main/java/com/mycompany/client/network/BrokerClient.java`
-- `Client/src/main/java/com/mycompany/interfaces/Login_interface.java`
-- `Client/src/main/java/com/mycompany/interfaces/Client_interface.java`
+#### Broker
+
+* `Broker_main.java`
+* `BrokerServer.java`
+* `BrokerVerificationService.java`
+* `CertificateTool.java`
+
+#### Cliente
+
+* `Client_main.java`
+* `BrokerClient.java`
+* `Login_interface.java`
+* `Client_interface.java`
+
+---
 
 ## Requisitos
 
-- JDK 17 ou superior.
-- Maven.
-- Windows, Linux ou macOS com suporte a Java Swing.
+* Java JDK 17 ou superior
+* Apache Maven
+* Windows, Linux ou macOS
 
-## Build
+---
 
-Compile os dois modulos separadamente:
+## Compilação
 
-```powershell
+Compile os módulos separadamente:
+
+### Broker
+
+```bash
 cd Broker
-mvn -q -DskipTests package
-
-cd ..\Client
-mvn -q -DskipTests package
+mvn clean package
 ```
 
-Os JARs gerados ficam em:
+### Cliente
 
-- `Broker/target/Broker.jar`
-- `Client/target/Client.jar`
-
-## Certificados da parcial 2
-
-Na parcial 2, somente o certificado do cliente e usado para autenticacao. O
-certificado do broker assinado por uma AC fica para a parte 3.
-
-O broker possui um par de chaves RSA:
-
-- `servidor_privada.key`: chave privada usada para assinar certificados de clientes.
-- `servidor_publica.key`: chave publica usada pelo broker para validar assinaturas.
-
-Para criar as chaves do broker e assinar um cliente offline:
-
-```powershell
-cd Broker
-java -cp target\Broker.jar com.mycompany.broker.CertificateTool init-server
-java -cp target\Broker.jar com.mycompany.broker.CertificateTool sign-client alice
-```
-
-Esse comando cria arquivos em `Broker/target/certificados`, incluindo:
-
-- `clientes/alice.cert`
-- `clientes/alice.private.key`
-- `clientes/alice.public.key`
-
-Para executar o cliente pelo JAR, copie o arquivo `.cert` do cliente para a pasta
-`certificados/clientes` ao lado do `Client.jar`:
-
-```powershell
-mkdir ..\Client\target\certificados\clientes
-copy target\certificados\clientes\alice.cert ..\Client\target\certificados\clientes\
-```
-
-Nao envie para o GitHub chaves privadas, certificados gerados, `usuarios.properties`
-ou a pasta `target`. Esses arquivos ja estao cobertos pelo `.gitignore`.
-
-## Execucao
-
-Inicie primeiro o broker:
-
-```powershell
-cd Broker
-java -jar target\Broker.jar
-```
-
-Depois inicie um ou mais clientes:
-
-```powershell
+```bash
 cd Client
-java -jar target\Client.jar
+mvn clean package
 ```
 
-No cliente, use o mesmo nome do certificado assinado. Por exemplo, se o arquivo
-for `alice.cert`, o usuario do login deve ser `alice`.
+Arquivos gerados:
 
-## Fluxo de conexao
-
-1. O broker inicia a porta TCP `5000` e a descoberta UDP `5001`.
-2. O cliente procura o broker via UDP.
-3. O cliente abre conexao TCP com o broker encontrado.
-4. O cliente carrega seu certificado local.
-5. O cliente envia `LOGIN` ou `REGISTER` com nome, senha e certificado.
-6. O broker valida formato, usuario, senha e assinatura do certificado.
-7. O broker responde `OK` quando a autenticacao passa.
-8. A interface do cliente abre e solicita mensagens pendentes.
-9. O broker entrega mensagens ainda nao baixadas por aquele cliente.
-
-## Publicacao no GitHub
-
-Execute os comandos abaixo dentro da pasta deste projeto, nao no diretorio pai
-dos projetos NetBeans:
-
-```powershell
-git init
-git branch -M main
-git remote add origin https://github.com/LeonS7/MiniMQTT-Secure.git
-git add README.md .gitignore Broker Client
-git commit -m "Add MiniMQTT Secure project"
-git push -u origin main
+```text
+Broker/target/Broker.jar
+Client/target/Client.jar
 ```
 
-Antes do commit, confira se nenhum arquivo sensivel entrou na lista:
+---
 
-```powershell
-git status --short
+## Infraestrutura de Certificados
+
+Nesta etapa do projeto, a autenticação é realizada através de certificados digitais de clientes assinados pela chave privada do broker.
+
+### Gerar chaves do broker
+
+```bash
+cd Broker
+java -cp target/Broker.jar com.mycompany.broker.CertificateTool init-server
 ```
 
-Nao devem aparecer arquivos de `target/`, `certificados/`, `*.key`, `*.cert` ou
-`usuarios.properties`.
+Arquivos gerados:
+
+```text
+servidor_privada.key
+servidor_publica.key
+```
+
+### Assinar certificado de um cliente
+
+```bash
+java -cp target/Broker.jar com.mycompany.broker.CertificateTool sign-client alice
+```
+
+Arquivos produzidos:
+
+```text
+clientes/alice.cert
+clientes/alice.private.key
+clientes/alice.public.key
+```
+
+### Copiar certificado para o cliente
+
+```bash
+mkdir -p ../Client/target/certificados/clientes
+cp target/certificados/clientes/alice.cert \
+   ../Client/target/certificados/clientes/
+```
+
+---
+
+## Execução
+
+### Iniciar o Broker
+
+```bash
+cd Broker
+java -jar target/Broker.jar
+```
+
+### Iniciar o Cliente
+
+```bash
+cd Client
+java -jar target/Client.jar
+```
+
+Durante o login, o nome de usuário deve corresponder ao certificado instalado.
+
+Exemplo:
+
+```text
+alice.cert
+```
+
+Usuário:
+
+```text
+alice
+```
+
+---
+
+## Fluxo de Conexão
+
+1. O broker inicia os serviços TCP e UDP.
+2. O cliente localiza automaticamente o broker via UDP.
+3. Uma conexão TCP é estabelecida.
+4. O cliente carrega seu certificado digital.
+5. O cliente envia uma requisição de LOGIN ou REGISTER.
+6. O broker valida:
+
+   * Usuário;
+   * Senha;
+   * Estrutura do certificado;
+   * Assinatura digital.
+7. Em caso de sucesso, o broker responde com `OK`.
+8. A interface principal é aberta.
+9. As mensagens pendentes são recuperadas automaticamente.
+
+---
+
+## Arquivos Ignorados
+
+Os seguintes arquivos não devem ser enviados ao GitHub:
+
+```text
+target/
+*.key
+*.cert
+usuarios.properties
+```
+
+Esses arquivos já estão protegidos pelo `.gitignore`.
+
+---
+
+## Tecnologias Utilizadas
+
+* Java 17
+* Java Swing
+* Java Sockets (TCP/UDP)
+* Maven
+* RSA
+* Certificados Digitais
+
+---
+
+## Autor
+
+**Leonardo de Souza da Luz**
+
+Projeto desenvolvido para a disciplina de Redes de Computadores (AV3).
