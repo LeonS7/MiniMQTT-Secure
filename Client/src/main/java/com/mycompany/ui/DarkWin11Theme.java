@@ -79,6 +79,8 @@ public final class DarkWin11Theme {
         UIManager.put("ToolTip.background", SURFACE);
         UIManager.put("ToolTip.foreground", TEXT);
         UIManager.put("OptionPane.background", SURFACE);
+        UIManager.put("OptionPane.foreground", TEXT);
+        UIManager.put("OptionPane.messageForeground", Color.WHITE);
         UIManager.put("Panel.background", BACKGROUND);
     }
 

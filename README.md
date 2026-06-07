@@ -171,6 +171,20 @@ Se o cliente informar que o certificado nao foi encontrado, confira estes pontos
 * Rodando pelo NetBeans/Maven, o cliente tambem procura em `Broker/target/certificados/clientes`;
 * Rodando pelo JAR, copie o `.cert` para `Client/target/certificados/clientes`.
 
+### Erro: assinatura invalida
+
+Esse erro acontece quando o `.cert` foi assinado por uma chave privada do broker,
+mas o broker em execucao esta usando outra chave publica. Para evitar isso, as
+chaves do broker ficam centralizadas em `Broker/certificados`.
+
+Se o erro aparecer depois de apagar ou recriar chaves, gere novamente o
+certificado do cliente com o mesmo broker:
+
+```bash
+cd Broker
+java -cp target/Broker.jar com.mycompany.broker.CertificateTool sign-client alice
+```
+
 ---
 
 ## Execução

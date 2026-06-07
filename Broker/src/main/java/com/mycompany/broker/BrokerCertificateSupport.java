@@ -5,6 +5,7 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -16,6 +17,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -101,6 +103,12 @@ final class BrokerCertificateSupport {
         Path publicKeyPath = serverPublicKeyPath();
 
         if (Files.exists(privateKeyPath) && Files.exists(publicKeyPath)) {
+            return false;
+        }
+
+        Path legacyDirectory = findLegacyServerKeyDirectory();
+        if (legacyDirectory != null) {
+            migrateServerKeys(legacyDirectory, privateKeyPath, publicKeyPath);
             return false;
         }
 
@@ -290,7 +298,42 @@ final class BrokerCertificateSupport {
     }
 
     /**
-     * Descobre a pasta onde a aplicacao esta rodando.
+     * Procura chaves antigas geradas antes da pasta de certificados ficar
+     * centralizada em Broker/certificados.
+     */
+    private static Path findLegacyServerKeyDirectory() {
+        Path baseDirectory = applicationDirectory();
+        List<Path> candidates = List.of(
+                baseDirectory.resolve("target").resolve("certificados"),
+                baseDirectory.resolve("target").resolve("classes").resolve("certificados"));
+
+        for (Path candidate : candidates) {
+            if (Files.exists(candidate.resolve(SERVER_PRIVATE_KEY_FILE))
+                    && Files.exists(candidate.resolve(SERVER_PUBLIC_KEY_FILE))) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Copia chaves antigas para a pasta estavel usada pelo broker e pela
+     * ferramenta offline.
+     */
+    private static void migrateServerKeys(Path legacyDirectory, Path privateKeyPath, Path publicKeyPath) throws IOException {
+        Files.createDirectories(privateKeyPath.getParent());
+        Files.copy(legacyDirectory.resolve(SERVER_PRIVATE_KEY_FILE),
+                privateKeyPath,
+                StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(legacyDirectory.resolve(SERVER_PUBLIC_KEY_FILE),
+                publicKeyPath,
+                StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    /**
+     * Descobre a pasta base da aplicacao. Quando o codigo roda por
+     * target/classes ou target/Broker.jar, volta para a pasta Broker para evitar
+     * pares de chaves diferentes entre NetBeans, Maven e JAR.
      */
     private static Path applicationDirectory() {
         try {
@@ -300,11 +343,34 @@ final class BrokerCertificateSupport {
                     .getLocation()
                     .toURI());
             if (Files.isRegularFile(location)) {
-                return location.getParent();
+                return normalizeApplicationDirectory(location.getParent());
             }
-            return location;
+            return normalizeApplicationDirectory(location);
         } catch (URISyntaxException | IllegalArgumentException ex) {
             return Path.of(System.getProperty("user.dir"));
         }
+    }
+
+    /**
+     * Normaliza target/classes e target para a pasta do modulo Broker.
+     */
+    private static Path normalizeApplicationDirectory(Path directory) {
+        if (directory == null) {
+            return Path.of(System.getProperty("user.dir"));
+        }
+
+        Path name = directory.getFileName();
+        Path parent = directory.getParent();
+        if (name != null && "classes".equals(name.toString())
+                && parent != null
+                && parent.getFileName() != null
+                && "target".equals(parent.getFileName().toString())
+                && parent.getParent() != null) {
+            return parent.getParent();
+        }
+        if (name != null && "target".equals(name.toString()) && parent != null) {
+            return parent;
+        }
+        return directory;
     }
 }
