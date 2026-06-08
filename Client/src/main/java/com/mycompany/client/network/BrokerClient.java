@@ -330,7 +330,7 @@ public final class BrokerClient {
                     break;
                 case "ERROR":
                     requireParts(parts, 2);
-                    fireStatus("ERRO: " + decode(parts[1]));
+                    fireStatus(decode(parts[1]));
                     break;
                 case "INFO":
                     requireParts(parts, 2);

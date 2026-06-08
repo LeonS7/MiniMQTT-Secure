@@ -495,7 +495,15 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
      * Callback chamado quando o broker envia a lista atualizada de topicos.
      */
     public void onTopics(List<String> topics) {
-        SwingUtilities.invokeLater(() -> tela_lista_topicos_cliente.setText(String.join(System.lineSeparator(), topics)));
+        SwingUtilities.invokeLater(() -> {
+            tela_lista_topicos_cliente.setText(String.join(System.lineSeparator(), topics));
+            if (!activeTopic.isEmpty() && !topics.contains(activeTopic)) {
+                String removedTopic = activeTopic;
+                activeTopic = "";
+                pendingActiveTopic = "";
+                appendStatus("Topico removido: " + removedTopic);
+            }
+        });
     }
 
     @Override
@@ -515,21 +523,35 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
      * cliente. A tela so considera um topico ativo apos o OK do broker.
      */
     public void onOperationConfirmed(String operation, String message, List<String> values) {
-        if (!"SUBSCRIBE".equals(operation) || values.isEmpty()) {
+        if (values.isEmpty()) {
             return;
         }
 
-        String confirmedTopic = values.get(0);
-        if (!confirmedTopic.equals(pendingActiveTopic)) {
+        if ("UNSUBSCRIBE".equals(operation) || "DELETE_TOPIC".equals(operation)) {
+            String changedTopic = values.get(0);
+            if (changedTopic.equals(activeTopic)) {
+                SwingUtilities.invokeLater(() -> {
+                    activeTopic = "";
+                    pendingActiveTopic = "";
+                    appendStatus("Topico ativo removido.");
+                });
+            }
             return;
         }
 
-        SwingUtilities.invokeLater(() -> {
-            activeTopic = confirmedTopic;
-            pendingActiveTopic = "";
-            nome_chat.setText("");
-            appendStatus("Topico ativo confirmado pelo servidor: " + activeTopic);
-        });
+        if ("SUBSCRIBE".equals(operation)) {
+            String confirmedTopic = values.get(0);
+            if (!confirmedTopic.equals(pendingActiveTopic)) {
+                return;
+            }
+
+            SwingUtilities.invokeLater(() -> {
+                activeTopic = confirmedTopic;
+                pendingActiveTopic = "";
+                nome_chat.setText("");
+                appendStatus("Topico ativo: " + activeTopic);
+            });
+        }
     }
 
     @Override

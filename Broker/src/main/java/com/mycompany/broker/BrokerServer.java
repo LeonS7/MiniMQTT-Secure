@@ -364,8 +364,19 @@ public final class BrokerServer {
         topic.subscribers.remove(client);
         client.subscriptions.remove(topicName);
         removePendingRecipient(topic, client.getName());
-        client.sendOk("UNSUBSCRIBE", "Inscricao cancelada: " + topicName, topicName);
+
+        if (topic.members.isEmpty() && topics.remove(topicName, topic)) {
+            topic.buffer.clear();
+            client.sendOk("UNSUBSCRIBE", "Inscricao cancelada. Topico excluido.", topicName);
+            log(client.getName() + " saiu do topico " + topicName + ". Topico excluido automaticamente.");
+            broadcastTopics();
+            notifySnapshot();
+            return;
+        }
+
+        client.sendOk("UNSUBSCRIBE", "Inscricao cancelada.", topicName);
         log(client.getName() + " saiu do topico " + topicName + ".");
+        broadcastTopics();
         notifySnapshot();
     }
 
@@ -418,7 +429,7 @@ public final class BrokerServer {
             topic.buffer.add(storedMessage);
             deliverPendingMessages(topic);
         }
-        client.sendOk("PUBLISH", "Mensagem publicada em " + topicName + ".", topicName);
+        client.sendOk("PUBLISH", "Mensagem enviada.", topicName);
         log(client.getName() + " publicou em " + topicName + ": " + cleanMessage);
     }
 

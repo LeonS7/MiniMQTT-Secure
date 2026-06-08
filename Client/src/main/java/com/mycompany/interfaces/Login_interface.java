@@ -310,14 +310,20 @@ public class Login_interface extends javax.swing.JFrame {
      */
     private void showConnectionError(String detail) {
         JOptionPane.showMessageDialog(this,
-                """
-                Nao foi possivel descobrir/conectar ao broker via UDP.
-                Inicie o broker e libere as portas UDP 5001 e TCP 5000 no firewall.
-                Verifique tambem se o certificado do cliente esta na pasta certificados/clientes.
-                
-                Detalhe: """ + detail,
-                "Erro de conexao",
+                shortError(detail),
+                "Erro",
                 JOptionPane.ERROR_MESSAGE);
+    }
+
+    /**
+     * Reduz mensagens tecnicas para um texto curto na interface.
+     */
+    private String shortError(String detail) {
+        String clean = detail == null ? "" : detail.trim();
+        if (clean.isEmpty()) {
+            return "Falha na conexao.";
+        }
+        return clean;
     }
 
     /**

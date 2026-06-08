@@ -60,20 +60,19 @@ public final class BrokerDiscovery {
 
             String[] parts = message.split("\\|", -1);
             if (parts.length != 2 || !DISCOVERY_RESPONSE.equals(parts[0])) {
-                throw new IOException("Resposta UDP invalida recebida do broker.");
+                throw new IOException("Resposta UDP invalida.");
             }
 
             int tcpPort;
             try {
                 tcpPort = Integer.parseInt(parts[1]);
             } catch (NumberFormatException ex) {
-                throw new IOException("Porta TCP invalida recebida do broker.", ex);
+                throw new IOException("Porta TCP invalida.", ex);
             }
 
             return new BrokerAddress(response.getAddress().getHostAddress(), tcpPort);
         } catch (SocketTimeoutException ex) {
-            throw new IOException("Broker nao encontrado via UDP. Verifique se o broker esta iniciado, se a VM esta na mesma rede e se o firewall liberou UDP "
-                    + DISCOVERY_PORT + ".", ex);
+            throw new IOException("Broker nao encontrado.", ex);
         }
     }
 

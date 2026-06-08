@@ -85,7 +85,7 @@ public final class BrokerVerificationService {
 
         UserAccount account = accounts.get(cleanName);
         if (account == null || !account.matches(password)) {
-            throw new IllegalArgumentException("Usuario ou senha invalidos.");
+            throw new IllegalArgumentException("Usuario ou senha invalido.");
         }
         return cleanName;
     }
@@ -116,7 +116,7 @@ public final class BrokerVerificationService {
         String cleanClientName = verifyRequiredClientName(clientName);
         String cleanCertificate = certificateText == null ? "" : certificateText.trim();
         if (cleanCertificate.isEmpty()) {
-            throw new IllegalArgumentException("Certificado do cliente nao informado.");
+            throw new IllegalArgumentException("Certificado nao informado.");
         }
 
         try {
@@ -130,23 +130,23 @@ public final class BrokerVerificationService {
 
             // Confere se o arquivo realmente segue o tipo de certificado esperado para cliente.
             if (!BrokerCertificateSupport.CLIENT_CERTIFICATE_TYPE.equals(type)) {
-                throw new IllegalArgumentException("Tipo de certificado invalido.");
+                throw new IllegalArgumentException("Certificado invalido.");
             }
             // Na parcial 2, quem deve ter emitido o certificado do cliente e o broker.
             if (!BrokerCertificateSupport.BROKER_ISSUER.equals(issuer)) {
-                throw new IllegalArgumentException("Emissor do certificado invalido.");
+                throw new IllegalArgumentException("Certificado invalido.");
             }
 
             // O subject vem codificado no certificado e deve ser igual ao usuario do login.
             String certificateOwner = BrokerCertificateSupport.decodeText(subject);
             if (!cleanClientName.equals(certificateOwner)) {
-                throw new IllegalArgumentException("Certificado nao pertence ao cliente informado.");
+                throw new IllegalArgumentException("Certificado de outro usuario.");
             }
 
             // Depois dos campos basicos, valida a assinatura digital do certificado.
             verifyServerSignature(type, subject, publicKey, issuer, issuedAt, signature);
         } catch (IOException | GeneralSecurityException ex) {
-            throw new IllegalArgumentException("Certificado do cliente nao pode ser validado: " + ex.getMessage(), ex);
+            throw new IllegalArgumentException("Certificado invalido.", ex);
         }
     }
 
@@ -177,7 +177,7 @@ public final class BrokerVerificationService {
     public void verifyTopicExists(String topicName, boolean topicExists) {
         verifyTopicName(topicName);
         if (!topicExists) {
-            throw new IllegalArgumentException("Topico nao encontrado: " + topicName);
+            throw new IllegalArgumentException("Topico nao encontrado.");
         }
     }
 
@@ -188,7 +188,7 @@ public final class BrokerVerificationService {
     public void verifyClientSubscribed(String topicName, boolean subscribed) {
         verifyTopicName(topicName);
         if (!subscribed) {
-            throw new IllegalArgumentException("Cliente nao esta inscrito no topico: " + topicName);
+            throw new IllegalArgumentException("Voce nao esta inscrito.");
         }
     }
 
@@ -199,7 +199,7 @@ public final class BrokerVerificationService {
         String cleanRequester = requester == null ? "" : requester.trim();
         String cleanOwner = owner == null ? "" : owner.trim();
         if (cleanOwner.isEmpty() || !cleanOwner.equals(cleanRequester)) {
-            throw new IllegalArgumentException("Apenas o criador pode excluir o topico.");
+            throw new IllegalArgumentException("Apenas o criador pode excluir.");
         }
     }
 
@@ -220,7 +220,7 @@ public final class BrokerVerificationService {
     public String verifyPublication(String topicName, boolean topicExists, boolean subscribed, String message) {
         verifyTopicExists(topicName, topicExists);
         if (!subscribed) {
-            throw new IllegalArgumentException("Inscreva-se no topico antes de publicar.");
+            throw new IllegalArgumentException("Entre no topico antes de enviar.");
         }
         return verifyMessage(message);
     }
@@ -300,7 +300,7 @@ public final class BrokerVerificationService {
     private void verifyServerSignature(String type, String subject, String publicKey, String issuer, String issuedAt, String signature)
             throws IOException, GeneralSecurityException {
         if (subject.isBlank() || publicKey.isBlank() || issuedAt.isBlank() || signature.isBlank()) {
-            throw new IllegalArgumentException("Certificado do cliente esta incompleto.");
+            throw new IllegalArgumentException("Certificado incompleto.");
         }
 
         Path serverPublicKeyPath = BrokerCertificateSupport.serverPublicKeyPath();
@@ -316,7 +316,7 @@ public final class BrokerVerificationService {
 
         boolean valid = verifier.verify(BrokerCertificateSupport.decodeBytes(signature));
         if (!valid) {
-            throw new IllegalArgumentException("Assinatura do certificado invalida.");
+            throw new IllegalArgumentException("Assinatura invalida.");
         }
     }
 

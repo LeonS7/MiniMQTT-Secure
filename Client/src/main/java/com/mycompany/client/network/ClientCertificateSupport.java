@@ -39,8 +39,7 @@ final class ClientCertificateSupport {
             }
         }
 
-        throw new IOException("Certificado do cliente nao encontrado: " + safeName
-                + ".cert. Pastas verificadas: " + searchDirectories);
+        throw new IOException("Certificado nao encontrado.");
     }
 
     /**
