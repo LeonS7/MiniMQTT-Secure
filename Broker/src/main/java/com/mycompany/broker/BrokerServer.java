@@ -265,6 +265,11 @@ public final class BrokerServer {
                     verifier.requireParts(parts, 2);
                     subscribe(client, verifier.verifyTopicName(verifier.decodeProtocolField(parts[1])));
                     break;
+                case "ENTER_TOPIC":
+                    requireAuthenticated(client);
+                    verifier.requireParts(parts, 2);
+                    enterTopic(client, verifier.verifyTopicName(verifier.decodeProtocolField(parts[1])));
+                    break;
                 case "UNSUBSCRIBE":
                     requireAuthenticated(client);
                     verifier.requireParts(parts, 2);
@@ -320,10 +325,12 @@ public final class BrokerServer {
      * Cria um topico se ele ainda nao existir e registra o cliente criador como
      * proprietario e primeiro inscrito.
      */
-    private void createTopic(ClientHandler client, String topicName) {
-        Topic topic = new Topic(topicName, client.getName());
-        Topic existing = topics.putIfAbsent(topicName, topic);
+    private synchronized void createTopic(ClientHandler client, String topicName) {
+        Topic existing = findTopic(topicName);
         verifier.verifyTopicCanBeCreated(topicName, existing != null);
+
+        Topic topic = new Topic(topicName, client.getName());
+        topics.put(topic.name, topic);
 
         topic.members.add(client.getName());
         topic.subscribers.add(client);
@@ -339,16 +346,30 @@ public final class BrokerServer {
      * futuras desse topico.
      */
     private void subscribe(ClientHandler client, String topicName) {
-        Topic topic = topics.get(topicName);
+        Topic topic = findTopic(topicName);
         verifier.verifyTopicExists(topicName, topic != null);
 
         topic.members.add(client.getName());
         topic.subscribers.add(client);
-        client.subscriptions.add(topicName);
-        client.sendOk("SUBSCRIBE", "Inscrito no topico: " + topicName, topicName);
-        downloadPendingMessages(client, topicName);
-        log(client.getName() + " entrou no topico " + topicName + ".");
+        client.subscriptions.add(topic.name);
+        client.sendOk("SUBSCRIBE", "Inscrito no topico: " + topic.name, topic.name);
+        downloadPendingMessages(client, topic.name);
+        log(client.getName() + " entrou no topico " + topic.name + ".");
         notifySnapshot();
+    }
+
+    /**
+     * Abre um topico para conversa sem criar inscricao nova.
+     */
+    private void enterTopic(ClientHandler client, String topicName) {
+        Topic topic = findTopic(topicName);
+        verifier.verifyTopicExists(topicName, topic != null);
+        verifier.verifyClientSubscribed(topic.name, topic.members.contains(client.getName()));
+
+        client.subscriptions.add(topic.name);
+        topic.subscribers.add(client);
+        downloadPendingMessages(client, topic.name);
+        client.sendOk("ENTER_TOPIC", "Topico aberto.", topic.name);
     }
 
     /**
@@ -356,26 +377,26 @@ public final class BrokerServer {
      * disponivel para outros clientes.
      */
     private void unsubscribe(ClientHandler client, String topicName) {
-        Topic topic = topics.get(topicName);
+        Topic topic = findTopic(topicName);
         verifier.verifyTopicExists(topicName, topic != null);
         verifier.verifyClientSubscribed(topicName, topic.members.contains(client.getName()));
 
         topic.members.remove(client.getName());
         topic.subscribers.remove(client);
-        client.subscriptions.remove(topicName);
+        client.subscriptions.remove(topic.name);
         removePendingRecipient(topic, client.getName());
 
-        if (topic.members.isEmpty() && topics.remove(topicName, topic)) {
+        if (topic.members.isEmpty() && topics.remove(topic.name, topic)) {
             topic.buffer.clear();
-            client.sendOk("UNSUBSCRIBE", "Inscricao cancelada. Topico excluido.", topicName);
-            log(client.getName() + " saiu do topico " + topicName + ". Topico excluido automaticamente.");
+            client.sendOk("UNSUBSCRIBE", "Inscricao cancelada. Topico excluido.", topic.name);
+            log(client.getName() + " saiu do topico " + topic.name + ". Topico excluido automaticamente.");
             broadcastTopics();
             notifySnapshot();
             return;
         }
 
-        client.sendOk("UNSUBSCRIBE", "Inscricao cancelada.", topicName);
-        log(client.getName() + " saiu do topico " + topicName + ".");
+        client.sendOk("UNSUBSCRIBE", "Inscricao cancelada.", topic.name);
+        log(client.getName() + " saiu do topico " + topic.name + ".");
         broadcastTopics();
         notifySnapshot();
     }
@@ -385,17 +406,17 @@ public final class BrokerServer {
      * Todos os inscritos sao notificados e suas inscricoes locais sao removidas.
      */
     private void deleteTopic(ClientHandler client, String topicName) {
-        Topic topic = topics.get(topicName);
+        Topic topic = findTopic(topicName);
         verifier.verifyTopicExists(topicName, topic != null);
         verifier.verifyTopicDeletion(client.getName(), topic.owner);
 
-        if (topics.remove(topicName, topic)) {
+        if (topics.remove(topic.name, topic)) {
             for (ClientHandler subscriber : new ArrayList<>(topic.subscribers)) {
-                subscriber.subscriptions.remove(topicName);
-                subscriber.sendInfo("Topico excluido: " + topicName);
+                subscriber.subscriptions.remove(topic.name);
+                subscriber.sendInfo("Topico excluido: " + topic.name);
             }
-            client.sendOk("DELETE_TOPIC", "Topico excluido: " + topicName, topicName);
-            log(client.getName() + " excluiu o topico " + topicName + ".");
+            client.sendOk("DELETE_TOPIC", "Topico excluido: " + topic.name, topic.name);
+            log(client.getName() + " excluiu o topico " + topic.name + ".");
             broadcastTopics();
             notifySnapshot();
         }
@@ -409,7 +430,7 @@ public final class BrokerServer {
      * proprio remetente.
      */
     private void publish(ClientHandler client, String topicName, String message) {
-        Topic topic = topics.get(topicName);
+        Topic topic = findTopic(topicName);
         boolean topicExists = topic != null;
         boolean clientSubscribed = topicExists && topic.members.contains(client.getName());
         String cleanMessage = verifier.verifyPublication(
@@ -420,7 +441,7 @@ public final class BrokerServer {
 
         StoredMessage storedMessage = new StoredMessage(
                 messageCounter.getAndIncrement(),
-                topicName,
+                topic.name,
                 client.getName(),
                 cleanMessage,
                 new HashSet<>(topic.members));
@@ -429,8 +450,8 @@ public final class BrokerServer {
             topic.buffer.add(storedMessage);
             deliverPendingMessages(topic);
         }
-        client.sendOk("PUBLISH", "Mensagem enviada.", topicName);
-        log(client.getName() + " publicou em " + topicName + ": " + cleanMessage);
+        client.sendOk("PUBLISH", "Mensagem enviada.", topic.name);
+        log(client.getName() + " publicou em " + topic.name + ": " + cleanMessage);
     }
 
     /**
@@ -480,7 +501,7 @@ public final class BrokerServer {
      * Faz download das mensagens pendentes de um unico topico para o cliente.
      */
     private void downloadPendingMessages(ClientHandler client, String topicName) {
-        Topic topic = topics.get(topicName);
+        Topic topic = findTopic(topicName);
         if (topic == null) {
             return;
         }
@@ -571,9 +592,34 @@ public final class BrokerServer {
      * previsivel nas interfaces.
      */
     private List<String> sortedTopicNames() {
-        List<String> names = new ArrayList<>(topics.keySet());
+        List<String> names = new ArrayList<>();
+        for (Topic topic : topics.values()) {
+            names.add(topic.name);
+        }
         Collections.sort(names);
         return names;
+    }
+
+    /**
+     * Localiza topicos sem diferenciar maiusculas e minusculas.
+     */
+    private Topic findTopic(String topicName) {
+        String cleanName = topicName == null ? "" : topicName.trim();
+        if (cleanName.isEmpty()) {
+            return null;
+        }
+
+        Topic exact = topics.get(cleanName);
+        if (exact != null) {
+            return exact;
+        }
+
+        for (Topic topic : topics.values()) {
+            if (topic.name.equalsIgnoreCase(cleanName)) {
+                return topic;
+            }
+        }
+        return null;
     }
 
     /**

@@ -412,7 +412,7 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
             return;
         }
 
-        brokerClient.subscribe(topic);
+        brokerClient.enterTopic(topic);
         pendingActiveTopic = topic;
         appendStatus("Solicitando entrada no topico: " + topic);
     }
@@ -492,6 +492,24 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
 
     @Override
     /**
+     * Callback chamado quando o broker recusa uma operacao solicitada.
+     */
+    public void onError(String message) {
+        SwingUtilities.invokeLater(() -> {
+            String attemptedTopic = pendingActiveTopic;
+            pendingActiveTopic = "";
+            appendStatus(message);
+            if (!attemptedTopic.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                        message,
+                        "Erro",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        });
+    }
+
+    @Override
+    /**
      * Callback chamado quando o broker envia a lista atualizada de topicos.
      */
     public void onTopics(List<String> topics) {
@@ -539,9 +557,9 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
             return;
         }
 
-        if ("SUBSCRIBE".equals(operation)) {
+        if ("ENTER_TOPIC".equals(operation) || "SUBSCRIBE".equals(operation)) {
             String confirmedTopic = values.get(0);
-            if (!confirmedTopic.equals(pendingActiveTopic)) {
+            if (!confirmedTopic.equalsIgnoreCase(pendingActiveTopic)) {
                 return;
             }
 

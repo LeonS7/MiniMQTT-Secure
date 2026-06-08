@@ -61,6 +61,13 @@ public final class BrokerClient {
         }
 
         /**
+         * Recebe erros enviados pelo broker. Por padrao, reutiliza o status.
+         */
+        default void onError(String message) {
+            onStatus(message);
+        }
+
+        /**
          * Avisa a interface quando a conexao e encerrada.
          */
         default void onDisconnected() {
@@ -217,6 +224,13 @@ public final class BrokerClient {
     }
 
     /**
+     * Solicita entrada em um topico ja assinado, sem criar inscricao nova.
+     */
+    public void enterTopic(String topic) {
+        send("ENTER_TOPIC", topic);
+    }
+
+    /**
      * Solicita cancelamento de inscricao em um topico.
      */
     public void unsubscribe(String topic) {
@@ -330,7 +344,7 @@ public final class BrokerClient {
                     break;
                 case "ERROR":
                     requireParts(parts, 2);
-                    fireStatus(decode(parts[1]));
+                    fireError(decode(parts[1]));
                     break;
                 case "INFO":
                     requireParts(parts, 2);
@@ -461,6 +475,15 @@ public final class BrokerClient {
     private void fireOperationConfirmed(String operation, String message, List<String> values) {
         for (Listener listener : listeners) {
             listener.onOperationConfirmed(operation, message, values);
+        }
+    }
+
+    /**
+     * Notifica os ouvintes sobre erros curtos enviados pelo broker.
+     */
+    private void fireError(String message) {
+        for (Listener listener : listeners) {
+            listener.onError(message);
         }
     }
 
