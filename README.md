@@ -1,6 +1,6 @@
 # MiniMQTT Secure
 
-![Java](https://img.shields.io/badge/Java-17+-orange)
+![Java](https://img.shields.io/badge/Java-22-orange)
 ![Maven](https://img.shields.io/badge/Maven-3.x-blue)
 ![Status](https://img.shields.io/badge/Status-AV3%20Parcial%202-success)
 
@@ -88,7 +88,7 @@ Implementar uma infraestrutura de comunicação semelhante ao MQTT contendo:
 
 ## Requisitos
 
-* Java JDK 17 ou superior
+* Java JDK 22
 * Apache Maven
 * Windows, Linux ou macOS
 
