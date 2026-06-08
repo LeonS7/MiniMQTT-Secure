@@ -145,6 +145,18 @@ servidor_publica.key
 java -cp target/Broker.jar com.mycompany.broker.CertificateTool sign-client alice
 ```
 
+No Windows, voce tambem pode usar o script:
+
+```powershell
+.\sign-client.bat alice
+```
+
+No Linux/macOS:
+
+```bash
+sh sign-client.sh alice
+```
+
 Arquivos produzidos:
 
 ```text
@@ -170,6 +182,35 @@ Se o cliente informar que o certificado nao foi encontrado, confira estes pontos
 * Exemplo: para `alice.cert`, o usuario deve ser `alice`;
 * Rodando pelo NetBeans/Maven, o cliente tambem procura em `Broker/target/certificados/clientes`;
 * Rodando pelo JAR, copie o `.cert` para `Client/target/certificados/clientes`.
+
+### Erro: ClassNotFoundException
+
+Esse erro indica que o Java nao encontrou a classe `CertificateTool` no
+classpath usado no comando.
+
+No Windows, rode dentro da pasta `Broker`:
+
+```powershell
+.\sign-client.bat alice
+```
+
+Ou use o comando completo:
+
+```powershell
+java -cp target\Broker.jar com.mycompany.broker.CertificateTool sign-client alice
+```
+
+No Linux, use barra normal `/`, nao `\`:
+
+```bash
+java -cp target/Broker.jar com.mycompany.broker.CertificateTool sign-client alice
+```
+
+Tambem confira se o broker foi compilado antes:
+
+```bash
+mvn -q -DskipTests package
+```
 
 ### Erro: assinatura invalida
 

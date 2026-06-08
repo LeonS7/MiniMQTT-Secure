@@ -48,6 +48,7 @@ public final class CertificateTool {
             }
         } catch (IOException | GeneralSecurityException | IllegalArgumentException ex) {
             System.err.println("Erro: " + ex.getMessage());
+            System.exit(1);
         }
     }
 
