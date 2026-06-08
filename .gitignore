@@ -9,7 +9,10 @@ dist/
 
 # Generated certificates, keys and local broker data
 certificados/
-**/certificados/
+**/certificados/*
+!Client/certificados/
+!Client/certificados/clientes/
+!Client/certificados/clientes/.gitkeep
 *.key
 *.cert
 usuarios.properties

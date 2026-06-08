@@ -157,6 +157,31 @@ No Linux/macOS:
 sh sign-client.sh alice
 ```
 
+Para criar os tres certificados usados nas VMs de uma vez:
+
+No Windows:
+
+```powershell
+.\sign-vm-clients.bat
+```
+
+No Linux/macOS:
+
+```bash
+sh sign-vm-clients.sh
+```
+
+Sem argumentos, esses scripts criam `Cliente1`, `Cliente2` e `Cliente3`. Para
+usar outros nomes:
+
+```powershell
+.\sign-vm-clients.bat VM1 VM2 VM3
+```
+
+Os certificados ficam em `Broker/certificados/clientes`. Quando a pasta `Client`
+existir ao lado do `Broker`, os scripts tambem copiam os `.cert` para
+`Client/certificados/clientes`.
+
 Arquivos produzidos:
 
 ```text
@@ -180,6 +205,7 @@ Se o cliente informar que o certificado nao foi encontrado, confira estes pontos
 * O comando `sign-client` precisa ter sido executado antes do login;
 * O nome usado no login precisa ser igual ao nome do arquivo `.cert`;
 * Exemplo: para `alice.cert`, o usuario deve ser `alice`;
+* A pasta recomendada nas VMs e `Client/certificados/clientes`;
 * Rodando pelo NetBeans/Maven, o cliente tambem procura em `Broker/target/certificados/clientes`;
 * Rodando pelo JAR, copie o `.cert` para `Client/target/certificados/clientes`.
 
