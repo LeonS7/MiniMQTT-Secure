@@ -148,13 +148,13 @@ java -cp target/Broker.jar com.mycompany.broker.CertificateTool sign-client alic
 No Windows, voce tambem pode usar o script:
 
 ```powershell
-.\sign-client.bat alice
+.\sign-client.bat NomeCliente
 ```
 
 No Linux/macOS:
 
 ```bash
-sh sign-client.sh alice
+sh sign-client.sh NomeCliente
 ```
 
 Para criar os tres certificados usados nas VMs de uma vez:
@@ -198,94 +198,6 @@ cp target/certificados/clientes/alice.cert \
    ../Client/target/certificados/clientes/
 ```
 
-### Erro: certificado nao encontrado
-
-Se o cliente informar que o certificado nao foi encontrado, confira estes pontos:
-
-* O comando `sign-client` precisa ter sido executado antes do login;
-* O nome usado no login precisa ser igual ao nome do arquivo `.cert`;
-* Exemplo: para `alice.cert`, o usuario deve ser `alice`;
-* A pasta recomendada nas VMs e `Client/certificados/clientes`;
-* Rodando pelo NetBeans/Maven, o cliente tambem procura em `Broker/target/certificados/clientes`;
-* Rodando pelo JAR, copie o `.cert` para `Client/target/certificados/clientes`.
-
-### Erro: ClassNotFoundException
-
-Esse erro indica que o Java nao encontrou a classe `CertificateTool` no
-classpath usado no comando.
-
-No Windows, rode dentro da pasta `Broker`:
-
-```powershell
-.\sign-client.bat alice
-```
-
-Ou use o comando completo:
-
-```powershell
-java -cp target\Broker.jar com.mycompany.broker.CertificateTool sign-client alice
-```
-
-No Linux, use barra normal `/`, nao `\`:
-
-```bash
-java -cp target/Broker.jar com.mycompany.broker.CertificateTool sign-client alice
-```
-
-Tambem confira se o broker foi compilado antes:
-
-```bash
-mvn -q -DskipTests package
-```
-
-### Erro: assinatura invalida
-
-Esse erro acontece quando o `.cert` foi assinado por uma chave privada do broker,
-mas o broker em execucao esta usando outra chave publica. Para evitar isso, as
-chaves do broker ficam centralizadas em `Broker/certificados`.
-
-Se o erro aparecer depois de apagar ou recriar chaves, gere novamente o
-certificado do cliente com o mesmo broker:
-
-```bash
-cd Broker
-java -cp target/Broker.jar com.mycompany.broker.CertificateTool sign-client alice
-```
-
----
-
-## Execução
-
-### Iniciar o Broker
-
-```bash
-cd Broker
-java -jar target/Broker.jar
-```
-
-### Iniciar o Cliente
-
-```bash
-cd Client
-java -jar target/Client.jar
-```
-
-Durante o login, o nome de usuário deve corresponder ao certificado instalado.
-
-Exemplo:
-
-```text
-alice.cert
-```
-
-Usuário:
-
-```text
-alice
-```
-
----
-
 ## Fluxo de Conexão
 
 1. O broker inicia os serviços TCP e UDP.
@@ -305,24 +217,9 @@ alice
 
 ---
 
-## Arquivos Ignorados
-
-Os seguintes arquivos não devem ser enviados ao GitHub:
-
-```text
-target/
-*.key
-*.cert
-usuarios.properties
-```
-
-Esses arquivos já estão protegidos pelo `.gitignore`.
-
----
-
 ## Tecnologias Utilizadas
 
-* Java 17
+* Java 22
 * Java Swing
 * Java Sockets (TCP/UDP)
 * Maven
