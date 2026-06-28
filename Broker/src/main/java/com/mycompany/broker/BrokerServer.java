@@ -12,6 +12,7 @@ import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -82,6 +83,7 @@ public final class BrokerServer {
     private final AtomicLong messageCounter = new AtomicLong(1);
 
     private volatile boolean running;
+    private volatile BrokerTransportSecurity transportSecurity;
     private ServerSocket serverSocket;
     private DatagramSocket discoverySocket;
     private ExecutorService executor;
@@ -106,6 +108,7 @@ public final class BrokerServer {
 
         try {
             boolean serverKeysCreated = BrokerCertificateSupport.ensureServerKeys();
+            transportSecurity = BrokerTransportSecurity.load();
             serverSocket = new ServerSocket(port);
             discoverySocket = new DatagramSocket(DISCOVERY_PORT);
             executor = Executors.newCachedThreadPool();
@@ -118,6 +121,7 @@ public final class BrokerServer {
             log(serverKeysCreated
                     ? "Chaves do servidor criadas em: " + BrokerCertificateSupport.certificateDirectory() + "."
                     : "Chaves do servidor carregadas de: " + BrokerCertificateSupport.certificateDirectory() + ".");
+            log("Certificado do broker carregado e canal seguro habilitado.");
             log("IPs encontrados nesta maquina: " + localAddressHint() + ".");
             notifySnapshot();
         } catch (IOException ex) {
@@ -317,6 +321,7 @@ public final class BrokerServer {
         restoreClientSubscriptions(client);
         client.sendOk("AUTH", message, verifiedName);
         sendTopics(client);
+        sendRestoredTopicKeys(client);
         log("Cliente autenticado e conectado: " + client.getName() + ".");
         notifySnapshot();
     }
@@ -336,6 +341,7 @@ public final class BrokerServer {
         topic.subscribers.add(client);
         client.subscriptions.add(topicName);
         client.sendOk("CREATE_TOPIC", "Topico criado e inscricao realizada: " + topicName, topicName);
+        sendTopicKeys(topic, client);
         log(client.getName() + " criou o topico " + topicName + ".");
         broadcastTopics();
         notifySnapshot();
@@ -353,6 +359,7 @@ public final class BrokerServer {
         topic.subscribers.add(client);
         client.subscriptions.add(topic.name);
         client.sendOk("SUBSCRIBE", "Inscrito no topico: " + topic.name, topic.name);
+        broadcastTopicKeys(topic);
         downloadPendingMessages(client, topic.name);
         log(client.getName() + " entrou no topico " + topic.name + ".");
         notifySnapshot();
@@ -368,6 +375,7 @@ public final class BrokerServer {
 
         client.subscriptions.add(topic.name);
         topic.subscribers.add(client);
+        sendTopicKeys(topic, client);
         downloadPendingMessages(client, topic.name);
         client.sendOk("ENTER_TOPIC", "Topico aberto.", topic.name);
     }
@@ -396,6 +404,7 @@ public final class BrokerServer {
         }
 
         client.sendOk("UNSUBSCRIBE", "Inscricao cancelada.", topic.name);
+        broadcastTopicKeys(topic);
         log(client.getName() + " saiu do topico " + topic.name + ".");
         broadcastTopics();
         notifySnapshot();
@@ -451,7 +460,7 @@ public final class BrokerServer {
             deliverPendingMessages(topic);
         }
         client.sendOk("PUBLISH", "Mensagem enviada.", topic.name);
-        log(client.getName() + " publicou em " + topic.name + ": " + cleanMessage);
+        log(client.getName() + " publicou mensagem criptografada em " + topic.name + ".");
     }
 
     /**
@@ -484,6 +493,18 @@ public final class BrokerServer {
             if (topic.members.contains(client.getName())) {
                 topic.subscribers.add(client);
                 client.subscriptions.add(topic.name);
+            }
+        }
+    }
+
+    /**
+     * Apos login, reenvia chaves dos topicos persistentes do cliente.
+     */
+    private void sendRestoredTopicKeys(ClientHandler client) {
+        for (String topicName : new ArrayList<>(client.subscriptions)) {
+            Topic topic = findTopic(topicName);
+            if (topic != null) {
+                sendTopicKeys(topic, client);
             }
         }
     }
@@ -552,6 +573,37 @@ public final class BrokerServer {
             message.pendingRecipients.remove(clientName);
         }
         purgeDeliveredMessages(topic);
+    }
+
+    /**
+     * Envia ao cliente as chaves publicas dos membros do topico para que ele
+     * consiga cifrar o payload ponta a ponta para todos os destinatarios.
+     */
+    private void sendTopicKeys(Topic topic, ClientHandler client) {
+        List<String> fields = new ArrayList<>();
+        fields.add("TOPIC_KEYS");
+        fields.add(encode(topic.name));
+
+        List<String> members = new ArrayList<>(topic.members);
+        Collections.sort(members);
+        for (String member : members) {
+            String publicKey = verifier.publicKeyFor(member);
+            if (publicKey == null || publicKey.isBlank()) {
+                continue;
+            }
+            fields.add(encode(member));
+            fields.add(encode(publicKey));
+        }
+        client.sendRaw(String.join("|", fields));
+    }
+
+    /**
+     * Atualiza os clientes online de um topico quando a lista de membros muda.
+     */
+    private void broadcastTopicKeys(Topic topic) {
+        for (ClientHandler subscriber : new ArrayList<>(topic.subscribers)) {
+            sendTopicKeys(topic, subscriber);
+        }
     }
 
     /**
@@ -733,6 +785,13 @@ public final class BrokerServer {
     }
 
     /**
+     * Codifica bytes em Base64 URL-safe para o handshake seguro.
+     */
+    private static String encodeBytes(byte[] value) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
+    }
+
+    /**
      * Representa uma conexao TCP de cliente.
      *
      * Cada instancia possui seu socket, escritor e conjunto de inscricoes. O
@@ -747,6 +806,7 @@ public final class BrokerServer {
         private volatile PrintWriter writer;
         private volatile boolean connected = true;
         private volatile boolean authenticated;
+        private volatile BrokerTransportSecurity.SecureSession secureSession;
 
         /**
          * Recebe o socket aceito pelo ServerSocket e cria um nome temporario
@@ -768,21 +828,59 @@ public final class BrokerServer {
                     PrintWriter socketWriter = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8)) {
 
                 writer = socketWriter;
+                performSecureHandshake(reader);
                 sendInfo("Aguardando autenticacao do cliente.");
                 notifySnapshot();
 
                 String line;
                 while (connected && running && (line = reader.readLine()) != null) {
-                    handleCommand(this, line);
+                    handleCommand(this, decryptLine(line));
                 }
             } catch (IOException ex) {
                 if (running && connected) {
                     log("Conexao perdida com " + name + ": " + ex.getMessage());
                 }
+            } catch (GeneralSecurityException ex) {
+                if (running && connected) {
+                    log("Falha de seguranca com " + name + ": " + ex.getMessage());
+                }
             } finally {
                 close();
                 removeClient(this);
             }
+        }
+
+        /**
+         * Envia o certificado do broker e recebe a chave de sessao AES cifrada.
+         */
+        private void performSecureHandshake(BufferedReader reader) throws IOException, GeneralSecurityException {
+            BrokerTransportSecurity currentSecurity = transportSecurity;
+            if (currentSecurity == null) {
+                throw new IOException("Canal seguro indisponivel.");
+            }
+
+            sendPlain("BROKER_CERT|" + encodeBytes(currentSecurity.encodedCertificate()));
+            String sessionLine = reader.readLine();
+            if (sessionLine == null) {
+                throw new IOException("Cliente encerrou antes do canal seguro.");
+            }
+
+            String[] parts = sessionLine.split("\\|", -1);
+            if (parts.length != 2 || !"SESSION".equals(parts[0])) {
+                throw new IOException("Sessao segura invalida.");
+            }
+            secureSession = currentSecurity.openSession(parts[1]);
+        }
+
+        /**
+         * Decifra uma linha protegida por AES/GCM.
+         */
+        private String decryptLine(String line) throws GeneralSecurityException {
+            BrokerTransportSecurity.SecureSession session = secureSession;
+            if (session == null) {
+                throw new GeneralSecurityException("Sessao segura nao iniciada.");
+            }
+            return session.decryptLine(line);
         }
 
         /**
@@ -854,6 +952,22 @@ public final class BrokerServer {
          * duas threads misturem escritas no mesmo socket.
          */
         synchronized void sendRaw(String line) {
+            PrintWriter currentWriter = writer;
+            if (currentWriter != null && connected) {
+                try {
+                    BrokerTransportSecurity.SecureSession session = secureSession;
+                    currentWriter.println(session == null ? line : session.encryptLine(line));
+                } catch (GeneralSecurityException ex) {
+                    close();
+                    log("Falha ao cifrar resposta para " + name + ": " + ex.getMessage());
+                }
+            }
+        }
+
+        /**
+         * Envia linhas publicas usadas apenas antes da sessao segura existir.
+         */
+        private synchronized void sendPlain(String line) {
             PrintWriter currentWriter = writer;
             if (currentWriter != null && connected) {
                 currentWriter.println(line);

@@ -75,7 +75,8 @@ public final class CertificateTool {
 
         System.out.println("Certificado criado: " + certificatePath);
         System.out.println("Chave privada do cliente: " + outputDirectory.resolve(safeName + ".private.key"));
-        System.out.println("Copie o arquivo .cert para a pasta certificados/clientes ao lado do Client.jar.");
+        System.out.println("Copie o .cert e o .private.key para Client/certificados/clientes.");
+        System.out.println("Copie tambem ca.crt para Client/certificados.");
         return certificatePath;
     }
 

@@ -82,11 +82,14 @@ public final class BrokerVerificationService {
         String cleanName = verifyRequiredClientName(clientName);
         verifyPasswordPresent(password);
         verifyClientCertificate(cleanName, certificateText);
+        String publicKey = extractClientPublicKey(certificateText);
 
         UserAccount account = accounts.get(cleanName);
         if (account == null || !account.matches(password)) {
             throw new IllegalArgumentException("Usuario ou senha invalido.");
         }
+        account.setPublicKey(publicKey);
+        saveAccounts();
         return cleanName;
     }
 
@@ -98,12 +101,13 @@ public final class BrokerVerificationService {
         String cleanName = verifyRequiredClientName(clientName);
         verifyPasswordPresent(password);
         verifyClientCertificate(cleanName, certificateText);
+        String publicKey = extractClientPublicKey(certificateText);
 
         if (accounts.containsKey(cleanName)) {
             throw new IllegalArgumentException("Usuario ja cadastrado.");
         }
 
-        accounts.put(cleanName, UserAccount.create(password, secureRandom));
+        accounts.put(cleanName, UserAccount.create(password, publicKey, secureRandom));
         saveAccounts();
         return cleanName;
     }
@@ -263,6 +267,14 @@ public final class BrokerVerificationService {
     }
 
     /**
+     * Retorna a chave publica do cliente salva durante cadastro/login.
+     */
+    public String publicKeyFor(String clientName) {
+        UserAccount account = accounts.get(clientName);
+        return account == null ? "" : account.publicKey();
+    }
+
+    /**
      * Exige que o nome do cliente esteja presente em login/cadastro.
      */
     private String verifyRequiredClientName(String value) {
@@ -290,6 +302,18 @@ public final class BrokerVerificationService {
         Properties properties = new Properties();
         properties.load(new StringReader(certificateText));
         return properties;
+    }
+
+    /**
+     * Extrai do certificado a chave publica que sera usada por outros clientes
+     * para criptografia ponta a ponta.
+     */
+    private String extractClientPublicKey(String certificateText) {
+        try {
+            return loadCertificateProperties(certificateText).getProperty("publicKey", "");
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("Certificado invalido.", ex);
+        }
     }
 
     /**
@@ -377,23 +401,25 @@ public final class BrokerVerificationService {
 
         private final String salt;
         private final String passwordHash;
+        private volatile String publicKey;
 
         /**
          * Cria a conta a partir de salt e hash ja calculados.
          */
-        private UserAccount(String salt, String passwordHash) {
+        private UserAccount(String salt, String passwordHash, String publicKey) {
             this.salt = salt;
             this.passwordHash = passwordHash;
+            this.publicKey = publicKey == null ? "" : publicKey;
         }
 
         /**
          * Cria uma conta nova gerando salt aleatorio e hash SHA-256 da senha.
          */
-        static UserAccount create(String password, SecureRandom secureRandom) {
+        static UserAccount create(String password, String publicKey, SecureRandom secureRandom) {
             byte[] saltBytes = new byte[SALT_BYTES];
             secureRandom.nextBytes(saltBytes);
             String salt = Base64.getUrlEncoder().withoutPadding().encodeToString(saltBytes);
-            return new UserAccount(salt, hash(password, salt));
+            return new UserAccount(salt, hash(password, salt), publicKey);
         }
 
         /**
@@ -404,10 +430,10 @@ public final class BrokerVerificationService {
                 return null;
             }
             String[] parts = stored.split(":", -1);
-            if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+            if ((parts.length != 2 && parts.length != 3) || parts[0].isBlank() || parts[1].isBlank()) {
                 return null;
             }
-            return new UserAccount(parts[0], parts[1]);
+            return new UserAccount(parts[0], parts[1], parts.length == 3 ? parts[2] : "");
         }
 
         /**
@@ -424,7 +450,22 @@ public final class BrokerVerificationService {
          * Formato usado no arquivo usuarios.properties.
          */
         String toStored() {
-            return salt + ":" + passwordHash;
+            return salt + ":" + passwordHash + ":" + publicKey;
+        }
+
+        /**
+         * Atualiza a chave publica quando o usuario faz login com certificado
+         * valido. Isso recupera contas antigas que ainda nao tinham essa chave.
+         */
+        void setPublicKey(String publicKey) {
+            this.publicKey = publicKey == null ? "" : publicKey;
+        }
+
+        /**
+         * Chave publica codificada em Base64 URL-safe.
+         */
+        String publicKey() {
+            return publicKey;
         }
 
         /**

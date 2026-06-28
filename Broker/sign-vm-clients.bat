@@ -19,6 +19,10 @@ if "%~1"=="" (
 
 if exist "%BASE_DIR%..\Client" (
     if not exist "%CLIENT_CERT_DIR%" mkdir "%CLIENT_CERT_DIR%"
+    if exist "%BASE_DIR%certificados\ca.crt" (
+        copy /Y "%BASE_DIR%certificados\ca.crt" "%BASE_DIR%..\Client\certificados\" > nul
+        echo Certificado da AC copiado para: %BASE_DIR%..\Client\certificados\ca.crt
+    )
 )
 
 for %%C in (%CLIENTS%) do (
@@ -29,10 +33,12 @@ for %%C in (%CLIENTS%) do (
 
     if exist "%CLIENT_CERT_DIR%" (
         copy /Y "%BASE_DIR%certificados\clientes\%%~C.cert" "%CLIENT_CERT_DIR%\" > nul
+        copy /Y "%BASE_DIR%certificados\clientes\%%~C.private.key" "%CLIENT_CERT_DIR%\" > nul
         echo Certificado copiado para: %CLIENT_CERT_DIR%\%%~C.cert
+        echo Chave privada copiada para: %CLIENT_CERT_DIR%\%%~C.private.key
     )
 )
 
 echo.
 echo Certificados gerados em: %BASE_DIR%certificados\clientes
-echo Copie para cada VM apenas o .cert do usuario daquela VM.
+echo Copie para cada VM o .cert e o .private.key do usuario daquela VM, alem do ca.crt.

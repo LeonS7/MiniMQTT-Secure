@@ -7,9 +7,14 @@ import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.PrivateKey;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -89,6 +94,9 @@ public final class BrokerClient {
     private volatile PrintWriter writer;
     private volatile Thread listenerThread;
     private volatile boolean connected;
+    private volatile ClientTransportSecurity.SecureSession secureSession;
+    private volatile PrivateKey clientPrivateKey;
+    private final ConcurrentHashMap<String, Map<String, String>> topicPublicKeys = new ConcurrentHashMap<>();
     private String username;
 
     /**
@@ -139,6 +147,7 @@ public final class BrokerClient {
             socket = newSocket;
             reader = new BufferedReader(new InputStreamReader(newSocket.getInputStream(), StandardCharsets.UTF_8));
             writer = new PrintWriter(newSocket.getOutputStream(), true, StandardCharsets.UTF_8);
+            secureSession = ClientTransportSecurity.openSession(reader, writer);
 
             authenticate(password, createAccount);
 
@@ -148,7 +157,7 @@ public final class BrokerClient {
             listenerThread.start();
 
             fireStatus("Conectado ao broker em " + host + ":" + port + ".");
-        } catch (IOException | RuntimeException ex) {
+        } catch (IOException | GeneralSecurityException | RuntimeException ex) {
             cleanup();
             if (ex instanceof IOException ioException) {
                 throw ioException;
@@ -248,7 +257,13 @@ public final class BrokerClient {
      * Publica uma mensagem textual no topico ativo do cliente.
      */
     public void publish(String topic, String message) {
-        send("PUBLISH", topic, message);
+        try {
+            Map<String, String> keys = topicPublicKeys.get(clean(topic, ""));
+            String encryptedMessage = EndToEndEnvelope.encrypt(message, keys);
+            send("PUBLISH", topic, encryptedMessage);
+        } catch (GeneralSecurityException ex) {
+            fireError(ex.getMessage());
+        }
     }
 
     /**
@@ -274,11 +289,15 @@ public final class BrokerClient {
             BufferedReader currentReader = reader;
             String line;
             while (connected && currentReader != null && (line = currentReader.readLine()) != null) {
-                processLine(line);
+                processLine(decryptLine(line));
             }
         } catch (IOException ex) {
             if (connected) {
                 fireStatus("Conexao perdida: " + ex.getMessage());
+            }
+        } catch (GeneralSecurityException ex) {
+            if (connected) {
+                fireStatus("Falha no canal seguro.");
             }
         } finally {
             if (connected) {
@@ -294,10 +313,15 @@ public final class BrokerClient {
      */
     private void authenticate(String password, boolean createAccount) throws IOException {
         String clientCertificate = ClientCertificateSupport.loadClientCertificate(username);
+        try {
+            clientPrivateKey = ClientCertificateSupport.loadClientPrivateKey(username);
+        } catch (GeneralSecurityException ex) {
+            throw new IOException("Chave privada invalida.", ex);
+        }
         sendProtocolLine(createAccount ? "REGISTER" : "LOGIN", username, password, clientCertificate);
 
         while (true) {
-            String line = reader.readLine();
+            String line = readSecureLine();
             if (line == null) {
                 throw new IOException("Broker encerrou a conexao durante a autenticacao.");
             }
@@ -357,9 +381,12 @@ public final class BrokerClient {
                     }
                     fireTopics(topics);
                     break;
+                case "TOPIC_KEYS":
+                    processTopicKeys(parts);
+                    break;
                 case "MESSAGE":
                     requireParts(parts, 4);
-                    fireMessage(decode(parts[1]), decode(parts[2]), decode(parts[3]));
+                    processMessage(parts);
                     break;
                 default:
                     fireStatus("Resposta desconhecida do broker: " + parts[0]);
@@ -395,6 +422,36 @@ public final class BrokerClient {
     }
 
     /**
+     * Guarda as chaves publicas dos membros do topico para criptografia ponta a
+     * ponta dos proximos envios.
+     */
+    private void processTopicKeys(String[] parts) {
+        requireParts(parts, 2);
+        String topic = decode(parts[1]);
+        Map<String, String> keys = new HashMap<>();
+        for (int i = 2; i + 1 < parts.length; i += 2) {
+            keys.put(decode(parts[i]), decode(parts[i + 1]));
+        }
+        topicPublicKeys.put(topic, Map.copyOf(keys));
+    }
+
+    /**
+     * Decifra o payload ponta a ponta antes de entregar para a interface.
+     */
+    private void processMessage(String[] parts) {
+        requireParts(parts, 4);
+        String topic = decode(parts[1]);
+        String sender = decode(parts[2]);
+        String encryptedPayload = decode(parts[3]);
+        try {
+            String plainMessage = EndToEndEnvelope.decrypt(encryptedPayload, username, clientPrivateKey);
+            fireMessage(topic, sender, plainMessage);
+        } catch (IOException | GeneralSecurityException ex) {
+            fireMessage(topic, sender, "[mensagem criptografada indisponivel]");
+        }
+    }
+
+    /**
      * Monta e envia uma linha do protocolo. Os argumentos sao codificados em
      * Base64 URL-safe para preservar caracteres especiais digitados pelo usuario.
      */
@@ -422,7 +479,40 @@ public final class BrokerClient {
             fields.add(encode(value));
         }
 
-        currentWriter.println(String.join("|", fields));
+        String line = String.join("|", fields);
+        try {
+            ClientTransportSecurity.SecureSession session = secureSession;
+            currentWriter.println(session == null ? line : session.encryptLine(line));
+        } catch (GeneralSecurityException ex) {
+            fireError("Falha ao cifrar mensagem.");
+            cleanup();
+        }
+    }
+
+    /**
+     * Le uma linha protegida por AES/GCM.
+     */
+    private String readSecureLine() throws IOException {
+        String line = reader.readLine();
+        if (line == null) {
+            return null;
+        }
+        try {
+            return decryptLine(line);
+        } catch (GeneralSecurityException ex) {
+            throw new IOException("Falha no canal seguro.", ex);
+        }
+    }
+
+    /**
+     * Decifra uma linha recebida do broker.
+     */
+    private String decryptLine(String line) throws GeneralSecurityException {
+        ClientTransportSecurity.SecureSession session = secureSession;
+        if (session == null) {
+            throw new GeneralSecurityException("Sessao segura nao iniciada.");
+        }
+        return session.decryptLine(line);
     }
 
     /**
@@ -432,6 +522,7 @@ public final class BrokerClient {
         connected = false;
         writer = null;
         reader = null;
+        secureSession = null;
         Socket currentSocket = socket;
         socket = null;
         if (currentSocket != null) {

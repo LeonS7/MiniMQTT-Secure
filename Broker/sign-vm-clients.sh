@@ -17,6 +17,10 @@ fi
 
 if [ -d "$SCRIPT_DIR/../Client" ]; then
     mkdir -p "$CLIENT_CERT_DIR"
+    if [ -f "$SCRIPT_DIR/certificados/ca.crt" ]; then
+        cp "$SCRIPT_DIR/certificados/ca.crt" "$SCRIPT_DIR/../Client/certificados/"
+        echo "Certificado da AC copiado para: $SCRIPT_DIR/../Client/certificados/ca.crt"
+    fi
 fi
 
 for client_name in "$@"; do
@@ -26,10 +30,12 @@ for client_name in "$@"; do
 
     if [ -d "$CLIENT_CERT_DIR" ]; then
         cp "$SCRIPT_DIR/certificados/clientes/$client_name.cert" "$CLIENT_CERT_DIR/"
+        cp "$SCRIPT_DIR/certificados/clientes/$client_name.private.key" "$CLIENT_CERT_DIR/"
         echo "Certificado copiado para: $CLIENT_CERT_DIR/$client_name.cert"
+        echo "Chave privada copiada para: $CLIENT_CERT_DIR/$client_name.private.key"
     fi
 done
 
 echo
 echo "Certificados gerados em: $SCRIPT_DIR/certificados/clientes"
-echo "Copie para cada VM apenas o .cert do usuario daquela VM."
+echo "Copie para cada VM o .cert e o .private.key do usuario daquela VM, alem do ca.crt."

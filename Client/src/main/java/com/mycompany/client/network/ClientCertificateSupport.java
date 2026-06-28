@@ -5,7 +5,12 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -27,19 +32,45 @@ final class ClientCertificateSupport {
      */
     static String loadClientCertificate(String clientName) throws IOException {
         String safeName = safeFileName(clientName);
-        List<Path> searchDirectories = certificateSearchDirectories();
-        for (Path baseDirectory : searchDirectories) {
-            Path direct = baseDirectory.resolve(safeName + ".cert");
-            Path nested = baseDirectory.resolve("clientes").resolve(safeName + ".cert");
-            if (Files.isRegularFile(direct)) {
-                return Files.readString(direct, StandardCharsets.UTF_8);
-            }
-            if (Files.isRegularFile(nested)) {
-                return Files.readString(nested, StandardCharsets.UTF_8);
-            }
+        Path certificatePath = findCertificateFile(safeName + ".cert");
+        if (certificatePath != null) {
+            return Files.readString(certificatePath, StandardCharsets.UTF_8);
         }
 
         throw new IOException("Certificado nao encontrado.");
+    }
+
+    /**
+     * Carrega a chave privada do cliente usada para abrir mensagens ponta a
+     * ponta destinadas a este usuario.
+     */
+    static PrivateKey loadClientPrivateKey(String clientName) throws IOException, GeneralSecurityException {
+        String safeName = safeFileName(clientName);
+        Path privateKeyPath = findCertificateFile(safeName + ".private.key");
+        if (privateKeyPath == null) {
+            throw new IOException("Chave privada nao encontrada.");
+        }
+
+        byte[] encoded = Base64.getMimeDecoder().decode(Files.readString(privateKeyPath, StandardCharsets.UTF_8));
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
+        return KeyFactory.getInstance("RSA").generatePrivate(keySpec);
+    }
+
+    /**
+     * Procura um arquivo dentro das pastas de certificados conhecidas.
+     */
+    static Path findCertificateFile(String fileName) {
+        for (Path baseDirectory : certificateSearchDirectories()) {
+            Path direct = baseDirectory.resolve(fileName);
+            Path nested = baseDirectory.resolve("clientes").resolve(fileName);
+            if (Files.isRegularFile(direct)) {
+                return direct;
+            }
+            if (Files.isRegularFile(nested)) {
+                return nested;
+            }
+        }
+        return null;
     }
 
     /**

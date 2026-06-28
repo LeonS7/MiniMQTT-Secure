@@ -17,3 +17,8 @@ if not exist "%BROKER_JAR%" (
 )
 
 java -cp "%BROKER_JAR%" com.mycompany.broker.CertificateTool sign-client "%~1"
+echo.
+echo Para a VM do cliente, copie tambem:
+echo   certificados\clientes\%~1.cert
+echo   certificados\clientes\%~1.private.key
+echo   certificados\ca.crt

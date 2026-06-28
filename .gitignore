@@ -11,10 +11,14 @@ dist/
 certificados/
 **/certificados/*
 !Client/certificados/
+!Client/certificados/.gitkeep
 !Client/certificados/clientes/
 !Client/certificados/clientes/.gitkeep
+*.p12
 *.key
 *.cert
+*.csr
+*.crt
 usuarios.properties
 
 # OS/editor files
