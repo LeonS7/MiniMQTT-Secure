@@ -1,12 +1,8 @@
 # MiniMQTT Secure
 
-Projeto Java da AV3 de Redes de Computadores II. A aplicacao implementa uma
-infraestrutura publish/subscribe inspirada no MQTT, com broker TCP, clientes
-Swing, autenticacao por certificados, bufferizacao de mensagens e criptografia.
-
-Repositorio: https://github.com/LeonS7/MiniMQTT-Secure
-
-Para explicar o projeto em sala, use tambem o roteiro em `APRESENTACAO.md`.
+Projeto Java, a aplicacao implementa uma infraestrutura publish/subscribe inspirada
+no MQTT, com broker TCP, clientes Swing, autenticacao por certificados, bufferizacao
+de mensagens e criptografia.
 
 ## Funcionalidades
 
