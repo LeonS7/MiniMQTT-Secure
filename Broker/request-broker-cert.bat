@@ -60,9 +60,9 @@ echo Nao envie broker-keystore.p12.
 exit /b 0
 
 :invalid_loopback
-echo Informe o IP real da VM/maquina do broker, nao localhost/127.0.0.1/::1.
+echo Informe o IPv4 real da maquina onde o broker roda, nao localhost/127.0.0.1/::1.
 exit /b 1
 
 :invalid_ip
-echo Informe um IPv4 valido da VM/maquina do broker. Exemplo: %~nx0 192.168.56.10
+echo Informe um IPv4 valido da maquina onde o broker roda. Exemplo: %~nx0 192.168.56.10
 exit /b 1

@@ -10,17 +10,17 @@ fi
 BROKER_IP="$1"
 case "$BROKER_IP" in
     IP_REAL_DO_BROKER)
-        echo "Informe um IPv4 valido da VM/maquina do broker. Exemplo: $0 192.168.56.10"
+        echo "Informe um IPv4 valido da maquina onde o broker roda. Exemplo: $0 192.168.56.10"
         exit 1
         ;;
     localhost|LOCALHOST|127.*|::1)
-        echo "Informe o IP real da VM/maquina do broker, nao localhost/127.0.0.1/::1."
+        echo "Informe o IPv4 real da maquina onde o broker roda, nao localhost/127.0.0.1/::1."
         exit 1
         ;;
 esac
 
 if ! printf '%s\n' "$BROKER_IP" | awk -F. 'NF == 4 { for (i = 1; i <= 4; i++) { if ($i !~ /^[0-9]+$/ || $i < 0 || $i > 255) exit 1 } exit 0 } { exit 1 }'; then
-    echo "Informe um IPv4 valido da VM/maquina do broker. Exemplo: $0 192.168.56.10"
+    echo "Informe um IPv4 valido da maquina onde o broker roda. Exemplo: $0 192.168.56.10"
     exit 1
 fi
 
