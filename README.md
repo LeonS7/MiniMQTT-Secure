@@ -1,136 +1,176 @@
 # MiniMQTT Secure
 
-Projeto Java da AV3 de Redes de Computadores II. A aplicacao implementa uma
-infraestrutura publish/subscribe inspirada no MQTT, com broker TCP, clientes
-Swing, autenticacao por certificados, bufferizacao de mensagens e criptografia.
+MiniMQTT Secure is a Java client/broker messaging system inspired by the MQTT
+publish/subscribe model. The project provides a Swing client, a TCP broker,
+client authentication with offline broker-signed certificates, broker
+authentication with an external CA certificate, message buffering, encrypted
+transport, and end-to-end encrypted payloads.
 
-Repositorio: https://github.com/LeonS7/MiniMQTT-Secure
+The implementation intentionally does not use TLS. The secure channel between
+clients and broker is implemented with a custom digital envelope based on RSA
+and AES/GCM.
 
-Para explicar o projeto em sala, use tambem o roteiro em `APRESENTACAO.md`.
+Repository: https://github.com/LeonS7/MiniMQTT-Secure
 
-## Funcionalidades
+## Features
 
-- Broker TCP na porta `5000`.
-- Descoberta automatica do broker via UDP na porta `5001`.
-- Cliente Swing com login, criacao de conta, topicos e chat.
-- Cliente pode participar de varios topicos simultaneamente.
-- Mensagens mostram cliente e topico de origem.
-- Broker mantem mensagens pendentes ate todos os inscritos baixarem.
-- Cliente baixa mensagens pendentes ao reconectar.
-- Cliente e autenticado por certificado assinado offline pelo broker.
-- Broker e autenticado por certificado assinado pela AC do professor.
-- Trafego TCP usa envelopamento digital proprio, sem TLS.
-- Payload das mensagens usa criptografia ponta a ponta.
+- TCP broker on port `5000`.
+- UDP broker discovery on port `5001`.
+- Java Swing client interface.
+- Account creation and login with certificate validation.
+- Topic creation, subscription, unsubscription, deletion, and publication.
+- Case-insensitive topic lookup.
+- Automatic subscription for the creator of a topic.
+- Automatic topic removal when the last subscriber leaves.
+- Message origin display with topic and sender.
+- Broker-side buffering of pending messages for offline subscribers.
+- Pending message download after reconnecting.
+- Broker certificate validation using `ca.crt`.
+- Custom encrypted transport without TLS.
+- End-to-end encrypted message payloads.
 
-## Estrutura
+## Project Structure
 
 ```text
 .
 |-- Broker/
+|   |-- src/main/java/
+|   |-- request-broker-cert.bat
+|   |-- request-broker-cert.sh
+|   |-- sign-client.bat
+|   |-- sign-client.sh
+|   |-- sign-vm-clients.bat
+|   `-- sign-vm-clients.sh
 |-- Client/
+|   `-- src/main/java/
 |-- README.md
 `-- .gitignore
 ```
 
-## Requisitos
+Generated certificates, private keys, Maven build outputs, and local broker data
+are intentionally ignored by Git.
 
-- JDK 17 ou superior.
+## Requirements
+
+- JDK 17 or newer.
 - Maven.
 
 ## Build
 
+Build the broker:
+
 ```powershell
 cd Broker
 mvn -q -DskipTests package
+```
 
-cd ..\Client
+Build the client:
+
+```powershell
+cd Client
 mvn -q -DskipTests package
 ```
 
-JARs gerados:
+Generated JARs:
 
 ```text
 Broker/target/Broker.jar
 Client/target/Client.jar
 ```
 
-## Certificados
+## Certificate Layout
 
-Na versao final existem dois conjuntos de certificados.
+Broker certificate files:
 
-Certificado do broker:
+```text
+Broker/certificados/ca.crt
+Broker/certificados/broker-keystore.p12
+Broker/certificados/broker.csr
+Broker/certificados/broker.crt
+```
 
-- `Broker/certificados/ca.crt`: certificado da AC do professor.
-- `Broker/certificados/broker-keystore.p12`: keystore local com a chave privada do broker.
-- `Broker/certificados/broker.csr`: requisicao enviada ao professor/AC.
-- `Broker/certificados/broker.crt`: certificado assinado que o professor devolve.
+Client certificate files:
 
-Para gerar uma CSR que funcione mesmo quando o IP mudar, use uma identidade DNS
-fixa para o broker. O script usa `minimqtt-broker` por padrao:
+```text
+Client/certificados/ca.crt
+Client/certificados/clientes/<client-name>.cert
+Client/certificados/clientes/<client-name>.private.key
+```
+
+The `broker-keystore.p12` file contains the broker private key and must never be
+sent or committed. The `broker.csr` file contains only the certificate signing
+request and is the file sent to the CA.
+
+## Broker Certificate Request
+
+Generate the broker CSR from the `Broker` module:
 
 ```powershell
 cd Broker
 .\request-broker-cert.bat
 ```
 
-No Linux/macOS:
+Linux/macOS equivalent:
 
 ```bash
 cd Broker
 sh request-broker-cert.sh
 ```
 
-Essa CSR pede `SAN=dns:minimqtt-broker`, entao o certificado do broker nao fica
-preso ao IP da rede atual. Nas VMs em modo bridge, o IP pode mudar na
-apresentacao; os clientes continuam descobrindo/conectando no IP atual via UDP,
-mas validam o certificado pela AC e pela identidade fixa `minimqtt-broker`.
-Se `broker-keystore.p12` ja existir, o script reaproveita a mesma chave privada
-e gera uma nova `broker.csr` com essa identidade fixa.
+By default, the CSR uses the stable DNS identity:
 
-Se quiser outro nome DNS estavel, informe-o no comando e use a mesma identidade
-ao iniciar os clientes:
-
-```powershell
-.\request-broker-cert.bat nome-do-broker
-java -Dminimqtt.broker.identity=nome-do-broker -jar target\Client.jar
+```text
+minimqtt-broker
 ```
 
-Nao use `127.0.0.1` nas VMs, porque esse endereco aponta para a propria VM, nao
-para o seu computador. O projeto nao usa loopback como endereco padrao e a
-descoberta UDP ignora interfaces de loopback.
+The CSR requests `SAN=dns:minimqtt-broker` instead of binding the broker
+certificate to an IP address. This avoids certificate validation failures when
+the broker runs in a different bridged network and receives a different IP.
 
-Envie ao professor somente:
+Send only this file to the CA:
 
 ```text
 Broker/certificados/broker.csr
 ```
 
-Depois que ele devolver o certificado assinado, salve como:
+After receiving the signed certificate, save it as:
 
 ```text
 Broker/certificados/broker.crt
 ```
 
-Nao envie nem apague o `broker-keystore.p12`, porque ele contem a chave privada
-que corresponde a CSR enviada.
+If `broker-keystore.p12` already exists, the script reuses the existing private
+key and generates a new CSR for the same key.
 
-Certificados dos clientes:
+To use a custom broker identity:
 
-- cada cliente tem um `.cert` assinado offline pelo broker;
-- cada cliente tambem precisa do seu `.private.key` para abrir mensagens ponta a ponta;
-- cada VM precisa de `Client/certificados/ca.crt` para validar o broker.
+```powershell
+cd Broker
+.\request-broker-cert.bat custom-broker-name
+```
 
-## Gerar Clientes Das VMs
+Clients must then be started with the same expected identity:
 
-Na maquina do broker:
+```powershell
+java -Dminimqtt.broker.identity=custom-broker-name -jar target\Client.jar
+```
+
+## Client Certificates
+
+Client certificates are generated offline by the broker. Build the broker first:
 
 ```powershell
 cd Broker
 mvn -q -DskipTests package
+```
+
+Generate the default VM users:
+
+```powershell
 .\sign-vm-clients.bat
 ```
 
-Sem argumentos, o script cria:
+Default clients:
 
 ```text
 Cliente1
@@ -138,123 +178,172 @@ Cliente2
 Cliente3
 ```
 
-Para nomes customizados:
+Generate custom clients:
 
 ```powershell
 .\sign-vm-clients.bat VM1 VM2 VM3
 ```
 
-O script gera os arquivos em:
+Generated files are stored in:
 
 ```text
 Broker/certificados/clientes/
 ```
 
-e, se a pasta `Client` estiver ao lado do `Broker`, tambem copia para:
+When the `Client` module exists beside `Broker`, the scripts also copy the files
+to:
 
 ```text
+Client/certificados/
 Client/certificados/clientes/
-Client/certificados/ca.crt
 ```
 
-Em cada VM, copie:
+For each VM, copy only the certificate and private key for that user, plus
+`ca.crt`:
 
 ```text
 Client/certificados/ca.crt
-Client/certificados/clientes/NomeDoUsuario.cert
-Client/certificados/clientes/NomeDoUsuario.private.key
+Client/certificados/clientes/Cliente1.cert
+Client/certificados/clientes/Cliente1.private.key
 ```
 
-O nome digitado no login precisa ser igual ao nome do certificado. Exemplo:
+The login name must match the certificate file name. Example:
 
 ```text
 Cliente1.cert -> login Cliente1
 ```
 
-## Criptografia
+## Security Model
 
-O projeto nao usa TLS. O canal TCP usa envelopamento digital proprio:
+### Transport Encryption
 
-1. o broker envia `broker.crt`;
-2. o cliente valida `broker.crt` com `ca.crt`;
-3. o cliente gera uma chave AES de sessao;
-4. essa chave AES e cifrada com RSA/OAEP usando a chave publica do broker;
-5. o protocolo passa a trafegar cifrado com AES/GCM.
+The client/broker TCP channel is protected by a custom digital envelope:
 
-O payload das publicacoes tambem e criptografado ponta a ponta:
+1. The broker sends `broker.crt`.
+2. The client validates `broker.crt` using `ca.crt`.
+3. The client checks the broker identity, defaulting to `minimqtt-broker`.
+4. The client generates an AES session key.
+5. The AES key is encrypted with the broker RSA public key using RSA/OAEP.
+6. Protocol messages are encrypted with AES/GCM.
 
-1. o broker envia aos clientes as chaves publicas dos inscritos no topico;
-2. o cliente cifra a mensagem com AES/GCM;
-3. a chave AES do payload e cifrada para cada destinatario com RSA/OAEP;
-4. o broker armazena e encaminha somente o envelope cifrado;
-5. apenas os clientes destinatarios conseguem abrir o conteudo.
+This protects the channel against third-party traffic inspection without using
+TLS.
 
-Assim, o broker consegue ler cabecalho/topico/remetente para rotear, mas nao
-consegue decodificar o payload da mensagem.
+### Client Authentication
 
-## Execucao
+The client sends its username, password, and broker-signed client certificate.
+The broker validates:
 
-Inicie primeiro o broker:
+- the account state;
+- the password hash;
+- the certificate owner;
+- the certificate issuer;
+- the broker signature over the certificate fields.
+
+The client only sends requests. Authorization and validation rules are enforced
+by the broker.
+
+### End-To-End Payload Encryption
+
+Transport encryption protects the TCP channel. In addition, message payloads are
+encrypted end to end:
+
+1. The broker sends topic member public keys to clients.
+2. The sender creates an AES payload key.
+3. The payload is encrypted with AES/GCM.
+4. The payload key is encrypted with RSA/OAEP for each recipient.
+5. The broker stores and forwards only the encrypted envelope.
+
+The broker can route messages by topic and sender, but it cannot decrypt the
+payload content.
+
+## Running
+
+Start the broker:
 
 ```powershell
 cd Broker
 java -jar target\Broker.jar
 ```
 
-Depois inicie os clientes:
+Start a client:
 
 ```powershell
 cd Client
 java -jar target\Client.jar
 ```
 
-Se a rede bridge bloquear descoberta UDP, informe o IP atual do broker na linha
-de comando, sem alterar o codigo:
+In bridged VM networks, UDP broadcast discovery may be blocked. In that case,
+start the client with the current broker IP:
 
 ```powershell
-java -jar target\Client.jar IP_DO_BROKER 5000
+java -jar target\Client.jar <broker-ip> 5000
 ```
 
-## Fluxo De Teste
+Do not use `127.0.0.1` from a VM to reach the broker on the host machine. In a
+VM, `127.0.0.1` points to the VM itself.
 
-1. Gere `Cliente1`, `Cliente2` e `Cliente3` com `sign-vm-clients`.
-2. Copie `ca.crt`, `.cert` e `.private.key` para cada VM.
-3. Inicie o broker com `broker.crt` ja assinado pela AC.
-4. Crie conta em cada VM usando o nome do certificado.
-5. Crie um topico em `Cliente1`.
-6. Inscreva `Cliente2` e `Cliente3` nesse topico.
-7. Abra o topico na tela principal antes de enviar mensagens.
-8. Deixe um cliente offline, envie mensagens e reconecte-o para testar pendencias.
+## Functional Validation
 
-## Erros Comuns
+Recommended validation flow:
+
+1. Build `Broker` and `Client`.
+2. Generate or copy the broker certificate signed by the CA.
+3. Generate client certificates with `sign-vm-clients`.
+4. Copy `ca.crt`, `.cert`, and `.private.key` to each VM.
+5. Start the broker.
+6. Start three clients.
+7. Create accounts using the names from the certificates.
+8. Create a topic with one client.
+9. Subscribe the other clients to the topic.
+10. Enter the topic from the main client window.
+11. Send messages and verify topic/sender display.
+12. Disconnect one subscribed client, send messages, reconnect, and verify
+    pending message download.
+13. Cancel subscriptions until the last subscriber leaves and verify automatic
+    topic removal.
+
+## Troubleshooting
 
 `Certificado nao encontrado.`
 
-- Falta o `.cert` em `Client/certificados/clientes`.
-- O nome do login nao bate com o nome do arquivo.
+- The `.cert` file is missing from `Client/certificados/clientes`.
+- The login name does not match the certificate file name.
 
 `Chave privada nao encontrada.`
 
-- Falta o `.private.key` do usuario em `Client/certificados/clientes`.
+- The `.private.key` file is missing from `Client/certificados/clientes`.
 
 `Certificado da AC nao encontrado.`
 
-- Falta `Client/certificados/ca.crt`.
+- `Client/certificados/ca.crt` is missing.
 
 `Assinatura invalida.`
 
-- O certificado do cliente foi gerado por outro broker.
-- Ou `broker.crt` nao foi assinado pela AC correta.
-- Ou `broker.crt` nao corresponde ao `broker-keystore.p12` usado na CSR.
+- The client certificate was generated by another broker key.
+- `broker.crt` was not signed by the expected CA.
+- `broker.crt` does not match `broker-keystore.p12`.
+
+`Identidade do broker invalida.`
+
+- The signed broker certificate does not contain the expected DNS identity.
+- Regenerate the CSR with `request-broker-cert`.
+- If a custom identity is used, start the client with
+  `-Dminimqtt.broker.identity=<name>`.
+
+`Broker nao encontrado.`
+
+- UDP discovery may be blocked by the network.
+- Start the client with `java -jar target\Client.jar <broker-ip> 5000`.
 
 `Voce nao esta inscrito.`
 
-- O botao `Entrar` da tela principal nao inscreve automaticamente.
-- Inscreva-se antes pela tela de configuracoes.
+- The main window `Entrar` button opens a conversation only after subscription.
+- Subscribe to the topic in the configuration window first.
 
-## Arquivos Ignorados
+## Ignored Files
 
-Nao envie ao GitHub:
+The following files must stay out of version control:
 
 ```text
 target/
