@@ -307,6 +307,9 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
         pack();
     }// </editor-fold>//GEN-END:initComponents
     /*Botao para abrir a interface Configuraçoes*/
+    /**
+     * Clique do botao Configuracoes: abre a janela de administracao de topicos.
+     */
     private void botao_configuracoesMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_configuracoesMouseClicked
         if (!ensureConnected()) {
             return;
@@ -316,15 +319,24 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
         options.setVisible(true);
     }//GEN-LAST:event_botao_configuracoesMouseClicked
     /*Botao para entrar no topico informado para começar a mandar mensagens*/
+    /**
+     * Clique do botao Entrar: pede ao broker para abrir um topico ja inscrito.
+     */
     private void botao_entrar_chatMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_entrar_chatMouseClicked
         enterTopic();
     }//GEN-LAST:event_botao_entrar_chatMouseClicked
     /*Botao para enviar mensagem*/
+    /**
+     * Clique do botao Enviar: criptografa e publica a mensagem no topico ativo.
+     */
     private void botao_enviar_msgMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_enviar_msgMouseClicked
         publishMessage();
     }//GEN-LAST:event_botao_enviar_msgMouseClicked
     /*Botao para desconectar usuario do servidor, fechar a interface Cliente e 
     voltar a interface de login*/
+    /**
+     * Clique do botao Encerrar: desconecta do broker e volta para o login.
+     */
     private void botao_encerrarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_encerrarMouseClicked
         closeClientAndReturnToLogin();
     }//GEN-LAST:event_botao_encerrarMouseClicked
@@ -482,18 +494,18 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
         });
     }
 
-    @Override
     /**
      * Callback chamado pelo BrokerClient quando chega OK, INFO ou ERROR.
      */
+    @Override
     public void onStatus(String message) {
         appendStatus(message);
     }
 
-    @Override
     /**
      * Callback chamado quando o broker recusa uma operacao solicitada.
      */
+    @Override
     public void onError(String message) {
         SwingUtilities.invokeLater(() -> {
             String attemptedTopic = pendingActiveTopic;
@@ -508,10 +520,10 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
         });
     }
 
-    @Override
     /**
      * Callback chamado quando o broker envia a lista atualizada de topicos.
      */
+    @Override
     public void onTopics(List<String> topics) {
         SwingUtilities.invokeLater(() -> {
             tela_lista_topicos_cliente.setText(String.join(System.lineSeparator(), topics));
@@ -524,10 +536,10 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
         });
     }
 
-    @Override
     /**
      * Callback chamado quando chega uma publicacao de um topico inscrito.
      */
+    @Override
     public void onMessage(String topic, String sender, String message) {
         SwingUtilities.invokeLater(() -> {
             tela_chat.append("[" + topic + "] " + sender + ": " + message + System.lineSeparator());
@@ -535,11 +547,11 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
         });
     }
 
-    @Override
     /**
      * Callback chamado quando o servidor confirma uma requisicao enviada pelo
      * cliente. A tela so considera um topico ativo apos o OK do broker.
      */
+    @Override
     public void onOperationConfirmed(String operation, String message, List<String> values) {
         if (values.isEmpty()) {
             return;
@@ -572,10 +584,10 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
         }
     }
 
-    @Override
     /**
      * Callback chamado quando a conexao TCP e finalizada ou perdida.
      */
+    @Override
     public void onDisconnected() {
         activeTopic = "";
         pendingActiveTopic = "";

@@ -131,8 +131,8 @@ public final class BrokerClient {
 
     /**
      * Abre a conexao TCP e envia login/cadastro com o certificado do cliente.
-     * A autenticacao do certificado do broker pela AC fica reservada para a
-     * proxima etapa do projeto.
+     * Antes do LOGIN/REGISTER, o canal seguro valida o certificado do broker
+     * pela AC local e negocia a chave AES de transporte.
      */
     public synchronized void connectAndAuthenticate(String host, int port, String username, String password, boolean createAccount)
             throws IOException {

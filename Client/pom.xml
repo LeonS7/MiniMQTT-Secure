@@ -6,8 +6,10 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <properties>
+        <!-- Mantem o projeto compilando com uma versao estavel do Java. -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
+        <!-- Classe que abre a interface Swing de login do cliente. -->
         <exec.mainClass>com.mycompany.client.Client_main</exec.mainClass>
     </properties>
     <build>
@@ -18,11 +20,13 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.4.2</version>
                 <configuration>
+                    <!-- Certificados e chaves sao arquivos locais sensiveis; nao entram no JAR. -->
                     <excludes>
                         <exclude>certificados/**</exclude>
                     </excludes>
                     <archive>
                         <manifest>
+                            <!-- Permite executar com: java -jar target/Client.jar -->
                             <mainClass>com.mycompany.client.Client_main</mainClass>
                         </manifest>
                     </archive>

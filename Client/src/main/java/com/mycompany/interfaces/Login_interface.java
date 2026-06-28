@@ -5,6 +5,7 @@ import com.mycompany.client.network.BrokerClient;
 import com.mycompany.client.network.BrokerDiscovery;
 import com.mycompany.ui.DarkWin11Theme;
 import java.awt.Cursor;
+import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
@@ -215,16 +216,23 @@ public class Login_interface extends javax.swing.JFrame {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-    /*Botao para fazer login e realizado com sucesso abrir a interface Cliente*/
+    /**
+     * Clique do botao Login: tenta autenticar uma conta ja cadastrada.
+     */
     private void botao_loginMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_loginMouseClicked
         openClient(false);
     }//GEN-LAST:event_botao_loginMouseClicked
-    /*Botao para registrar um novo usuario e se a conexão for feita com
-    sucesso abir a interface Cliente*/
+
+    /**
+     * Clique do botao Criar Conta: envia REGISTER depois de validar senha.
+     */
     private void botao_criarContaMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_criarContaMouseClicked
         openClient(true);
     }//GEN-LAST:event_botao_criarContaMouseClicked
-    /*Botao para fechar a aplicação*/
+
+    /**
+     * Clique do botao Sair: fecha o processo do cliente.
+     */
     private void sairMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sairMouseClicked
         System.exit(0);
     }//GEN-LAST:event_sairMouseClicked
@@ -264,8 +272,8 @@ public class Login_interface extends javax.swing.JFrame {
         new SwingWorker<ConnectionResult, Void>() {
             @Override
             protected ConnectionResult doInBackground() throws Exception {
-                // Primeiro localiza o broker pela rede.
-                BrokerDiscovery.BrokerAddress target = BrokerDiscovery.discover();
+                // Primeiro tenta localizar por UDP; se falhar, usa host/porta passados por argumento.
+                ConnectionTarget target = resolveConnectionTarget();
                 BrokerClient.configureDefaultConnection(target.getHost(), target.getPort());
 
                 // Depois conecta e so retorna quando o broker aceitar a autenticacao.
@@ -292,6 +300,24 @@ public class Login_interface extends javax.swing.JFrame {
                 }
             }
         }.execute();
+    }
+
+    /**
+     * Resolve o endereco do broker para a apresentacao. Em redes bridge, o
+     * broadcast UDP normalmente funciona; quando a rede bloqueia broadcast, o
+     * usuario ainda pode iniciar o cliente com `java -jar Client.jar host porta`.
+     */
+    private ConnectionTarget resolveConnectionTarget() throws IOException {
+        try {
+            BrokerDiscovery.BrokerAddress discovered = BrokerDiscovery.discover();
+            return new ConnectionTarget(discovered.getHost(), discovered.getPort());
+        } catch (IOException discoveryFailure) {
+            String configuredHost = BrokerClient.getConfiguredHost();
+            if (!configuredHost.isBlank()) {
+                return new ConnectionTarget(configuredHost, BrokerClient.getConfiguredPort());
+            }
+            throw discoveryFailure;
+        }
     }
 
     /**
@@ -335,6 +361,28 @@ public class Login_interface extends javax.swing.JFrame {
 
         private ConnectionResult(BrokerClient brokerClient) {
             this.brokerClient = brokerClient;
+        }
+    }
+
+    /**
+     * Endereco TCP escolhido para a conexao depois da descoberta ou fallback.
+     */
+    private static final class ConnectionTarget {
+
+        private final String host;
+        private final int port;
+
+        private ConnectionTarget(String host, int port) {
+            this.host = host;
+            this.port = port;
+        }
+
+        private String getHost() {
+            return host;
+        }
+
+        private int getPort() {
+            return port;
         }
     }
 

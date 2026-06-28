@@ -1,10 +1,13 @@
 #!/usr/bin/env sh
 set -eu
 
+# Assina offline os clientes usados nas VMs da apresentacao.
+# Sem argumentos, gera Cliente1, Cliente2 e Cliente3.
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 BROKER_JAR="$SCRIPT_DIR/target/Broker.jar"
 CLIENT_CERT_DIR="$SCRIPT_DIR/../Client/certificados/clientes"
 
+# O CertificateTool fica dentro do Broker.jar, por isso o build precisa existir.
 if [ ! -f "$BROKER_JAR" ]; then
     echo "Broker.jar nao encontrado em: $BROKER_JAR"
     echo "Compile o broker antes com: mvn -q -DskipTests package"
@@ -16,6 +19,7 @@ if [ "$#" -eq 0 ]; then
 fi
 
 if [ -d "$SCRIPT_DIR/../Client" ]; then
+    # Facilita teste local copiando os certificados tambem para o modulo Client.
     mkdir -p "$CLIENT_CERT_DIR"
     if [ -f "$SCRIPT_DIR/certificados/ca.crt" ]; then
         cp "$SCRIPT_DIR/certificados/ca.crt" "$SCRIPT_DIR/../Client/certificados/"
@@ -23,6 +27,7 @@ if [ -d "$SCRIPT_DIR/../Client" ]; then
     fi
 fi
 
+# Cada nome informado gera um par de chaves proprio e um certificado assinado.
 for client_name in "$@"; do
     echo
     echo "Gerando certificado para $client_name..."

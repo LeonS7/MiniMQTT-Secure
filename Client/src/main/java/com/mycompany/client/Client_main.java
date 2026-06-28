@@ -23,7 +23,8 @@ public class Client_main {
 
     /**
      * Mantem compatibilidade com execucao por linha de comando. Se forem
-     * passados host e porta, esses valores viram fallback para a conexao.
+     * passados host e porta, esses valores viram fallback quando a descoberta
+     * UDP nao encontrar o broker na rede bridge.
      */
     private static void configureBrokerFromArgs(String[] args) {
         if (args == null || args.length == 0) {

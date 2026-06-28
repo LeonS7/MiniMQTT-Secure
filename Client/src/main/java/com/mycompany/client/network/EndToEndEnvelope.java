@@ -103,19 +103,31 @@ final class EndToEndEnvelope {
         return new String(plaintext, StandardCharsets.UTF_8);
     }
 
+    /**
+     * Reconstroi uma chave publica RSA a partir do texto Base64 salvo na conta.
+     */
     private static PublicKey publicKeyFromBase64(String value) throws GeneralSecurityException {
         X509EncodedKeySpec keySpec = new X509EncodedKeySpec(decodeBytes(value));
         return KeyFactory.getInstance("RSA").generatePublic(keySpec);
     }
 
+    /**
+     * Codifica nomes de usuarios para virar chave segura dentro do Properties.
+     */
     private static String encodeText(String value) {
         return encodeBytes((value == null ? "" : value).getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * Converte bytes para Base64 URL-safe sem padding.
+     */
     private static String encodeBytes(byte[] value) {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
     }
 
+    /**
+     * Converte Base64 URL-safe de volta para bytes.
+     */
     private static byte[] decodeBytes(String value) {
         return Base64.getUrlDecoder().decode(value);
     }

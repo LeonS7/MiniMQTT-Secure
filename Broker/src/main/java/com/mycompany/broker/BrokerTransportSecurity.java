@@ -44,7 +44,7 @@ final class BrokerTransportSecurity {
     }
 
     /**
-     * Carrega os arquivos finais da parte 3: broker-keystore.p12 e broker.crt.
+     * Carrega os arquivos finais do broker: broker-keystore.p12 e broker.crt.
      */
     static BrokerTransportSecurity load() throws IOException, GeneralSecurityException {
         Path certificateDirectory = BrokerCertificateSupport.certificateDirectory();
@@ -141,10 +141,16 @@ final class BrokerTransportSecurity {
         }
     }
 
+    /**
+     * Decodifica Base64 URL-safe recebido no protocolo.
+     */
     private static byte[] decodeBytes(String value) {
         return Base64.getUrlDecoder().decode(value);
     }
 
+    /**
+     * Codifica bytes em Base64 URL-safe para trafegar em uma linha de texto.
+     */
     private static String encodeBytes(byte[] value) {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
     }

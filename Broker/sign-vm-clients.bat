@@ -1,10 +1,13 @@
 @echo off
 setlocal enabledelayedexpansion
 
+rem Assina offline os clientes usados nas VMs da apresentacao.
+rem Sem argumentos, gera Cliente1, Cliente2 e Cliente3.
 set "BASE_DIR=%~dp0"
 set "BROKER_JAR=%BASE_DIR%target\Broker.jar"
 set "CLIENT_CERT_DIR=%BASE_DIR%..\Client\certificados\clientes"
 
+rem O CertificateTool fica dentro do Broker.jar, por isso o build precisa existir.
 if not exist "%BROKER_JAR%" (
     echo Broker.jar nao encontrado em: %BROKER_JAR%
     echo Compile o broker antes com: mvn -q -DskipTests package
@@ -18,6 +21,7 @@ if "%~1"=="" (
 )
 
 if exist "%BASE_DIR%..\Client" (
+    rem Facilita teste local copiando os certificados tambem para o modulo Client.
     if not exist "%CLIENT_CERT_DIR%" mkdir "%CLIENT_CERT_DIR%"
     if exist "%BASE_DIR%certificados\ca.crt" (
         copy /Y "%BASE_DIR%certificados\ca.crt" "%BASE_DIR%..\Client\certificados\" > nul
@@ -25,6 +29,7 @@ if exist "%BASE_DIR%..\Client" (
     )
 )
 
+rem Cada nome informado gera um par de chaves proprio e um certificado assinado.
 for %%C in (%CLIENTS%) do (
     echo.
     echo Gerando certificado para %%~C...

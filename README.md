@@ -6,6 +6,8 @@ Swing, autenticacao por certificados, bufferizacao de mensagens e criptografia.
 
 Repositorio: https://github.com/LeonS7/MiniMQTT-Secure
 
+Para explicar o projeto em sala, use tambem o roteiro em `APRESENTACAO.md`.
+
 ## Funcionalidades
 
 - Broker TCP na porta `5000`.
@@ -63,28 +65,39 @@ Certificado do broker:
 - `Broker/certificados/broker.csr`: requisicao enviada ao professor/AC.
 - `Broker/certificados/broker.crt`: certificado assinado que o professor devolve.
 
-Para gerar uma CSR sem `localhost` ou `127.0.0.1`, use o IP real da maquina onde
-o broker vai rodar. Se o broker roda no seu computador e os clientes rodam nas
-VMs, use o IPv4 do seu computador/host que as VMs conseguem acessar:
+Para gerar uma CSR que funcione mesmo quando o IP mudar, use uma identidade DNS
+fixa para o broker. O script usa `minimqtt-broker` por padrao:
 
 ```powershell
 cd Broker
-.\request-broker-cert.bat 192.168.56.10
+.\request-broker-cert.bat
 ```
 
 No Linux/macOS:
 
 ```bash
 cd Broker
-sh request-broker-cert.sh 192.168.56.10
+sh request-broker-cert.sh
 ```
 
-Troque `192.168.56.10` pelo IPv4 real da maquina host do broker. Nao use
-`127.0.0.1` nas VMs, porque esse endereco aponta para a propria VM, nao para o
-seu computador. O projeto nao usa loopback como endereco padrao, a descoberta
-UDP ignora interfaces de loopback e os scripts recusam `localhost`, `127.*`,
-`::1` e textos de exemplo como
-`IP_REAL_DO_BROKER`.
+Essa CSR pede `SAN=dns:minimqtt-broker`, entao o certificado do broker nao fica
+preso ao IP da rede atual. Nas VMs em modo bridge, o IP pode mudar na
+apresentacao; os clientes continuam descobrindo/conectando no IP atual via UDP,
+mas validam o certificado pela AC e pela identidade fixa `minimqtt-broker`.
+Se `broker-keystore.p12` ja existir, o script reaproveita a mesma chave privada
+e gera uma nova `broker.csr` com essa identidade fixa.
+
+Se quiser outro nome DNS estavel, informe-o no comando e use a mesma identidade
+ao iniciar os clientes:
+
+```powershell
+.\request-broker-cert.bat nome-do-broker
+java -Dminimqtt.broker.identity=nome-do-broker -jar target\Client.jar
+```
+
+Nao use `127.0.0.1` nas VMs, porque esse endereco aponta para a propria VM, nao
+para o seu computador. O projeto nao usa loopback como endereco padrao e a
+descoberta UDP ignora interfaces de loopback.
 
 Envie ao professor somente:
 
@@ -193,6 +206,13 @@ Depois inicie os clientes:
 ```powershell
 cd Client
 java -jar target\Client.jar
+```
+
+Se a rede bridge bloquear descoberta UDP, informe o IP atual do broker na linha
+de comando, sem alterar o codigo:
+
+```powershell
+java -jar target\Client.jar IP_DO_BROKER 5000
 ```
 
 ## Fluxo De Teste

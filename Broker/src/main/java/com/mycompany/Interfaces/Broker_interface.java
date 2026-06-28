@@ -254,6 +254,10 @@ public class Broker_interface extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
     /*Botao para iniciar o servidor e coloca-lo online*/
+    /**
+     * Clique do botao Iniciar Servidor: carrega certificados, abre TCP/UDP e
+     * habilita o broker para receber clientes.
+     */
     private void Botao_iniciarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_Botao_iniciarMouseClicked
         try {
             brokerServer.start();
@@ -267,12 +271,18 @@ public class Broker_interface extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_Botao_iniciarMouseClicked
     /*Botao para encerrar o servidor e coloca-lo offline*/
+    /**
+     * Clique do botao Encerrar Servidor: fecha sockets e desconecta clientes.
+     */
     private void Botao_encerrarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_Botao_encerrarMouseClicked
         brokerServer.stop();
         Botao_iniciar.setEnabled(true);
         Botao_encerrar.setEnabled(false);
     }//GEN-LAST:event_Botao_encerrarMouseClicked
     /*Botao para fechar a aplicação*/
+    /**
+     * Clique do botao Sair: encerra o processo do broker.
+     */
     private void sairMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_sairMouseClicked
         System.exit(0);
     }//GEN-LAST:event_sairMouseClicked

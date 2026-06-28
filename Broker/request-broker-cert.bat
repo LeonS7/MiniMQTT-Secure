@@ -1,18 +1,14 @@
 @echo off
 setlocal
 
-if "%~1"=="" (
-    echo Uso: %~nx0 IP_DO_BROKER
-    echo Exemplo: %~nx0 192.168.56.10
-    exit /b 1
-)
+rem Gera a requisicao de assinatura do certificado do broker para a AC.
+rem O nome padrao minimqtt-broker evita prender o certificado ao IP da rede.
+set "BROKER_NAME=%~1"
+if "%BROKER_NAME%"=="" set "BROKER_NAME=minimqtt-broker"
 
-set "BROKER_IP=%~1"
-if /i "%BROKER_IP%"=="IP_REAL_DO_BROKER" goto invalid_ip
-
-powershell -NoProfile -Command "$parsed = $null; if (-not [Net.IPAddress]::TryParse($env:BROKER_IP, [ref] $parsed) -or $parsed.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { exit 1 }; if ([Net.IPAddress]::IsLoopback($parsed)) { exit 2 }"
-if errorlevel 2 goto invalid_loopback
-if errorlevel 1 goto invalid_ip
+rem Recusa IP/localhost porque, em redes bridge, o IP pode mudar na apresentacao.
+powershell -NoProfile -Command "$name = $env:BROKER_NAME; $ip = $null; if ([Net.IPAddress]::TryParse($name, [ref] $ip)) { exit 1 }; if ($name.Equals('localhost', [StringComparison]::OrdinalIgnoreCase)) { exit 1 }; if ($name -notmatch '^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$') { exit 1 }"
+if errorlevel 1 goto invalid_name
 
 set "BASE_DIR=%~dp0"
 set "KEYTOOL=keytool"
@@ -23,46 +19,46 @@ if errorlevel 1 (
 
 if not exist "%BASE_DIR%certificados" mkdir "%BASE_DIR%certificados"
 
+rem Se a chave ja existir, ela deve ser reaproveitada para manter correspondencia
+rem entre broker-keystore.p12, broker.csr e o futuro broker.crt assinado.
 if exist "%BASE_DIR%certificados\broker-keystore.p12" (
-    echo Ja existe broker-keystore.p12 em %BASE_DIR%certificados
-    echo Para gerar uma nova CSR com outro IP, renomeie ou remova esse arquivo manualmente.
-    exit /b 1
+    echo Reutilizando chave privada existente em %BASE_DIR%certificados\broker-keystore.p12
+) else (
+    "%KEYTOOL%" -genkeypair ^
+      -alias broker ^
+      -keyalg RSA ^
+      -keysize 2048 ^
+      -validity 365 ^
+      -keystore "%BASE_DIR%certificados\broker-keystore.p12" ^
+      -storetype PKCS12 ^
+      -storepass broker123 ^
+      -keypass broker123 ^
+      -dname "CN=MiniMQTT Broker, OU=Redes, O=MiniMQTT Secure, L=Brusque, ST=SC, C=BR" ^
+      -ext "SAN=dns:%BROKER_NAME%" ^
+      -noprompt
+
+    if errorlevel 1 exit /b 1
 )
 
-"%KEYTOOL%" -genkeypair ^
-  -alias broker ^
-  -keyalg RSA ^
-  -keysize 2048 ^
-  -validity 365 ^
-  -keystore "%BASE_DIR%certificados\broker-keystore.p12" ^
-  -storetype PKCS12 ^
-  -storepass broker123 ^
-  -keypass broker123 ^
-  -dname "CN=MiniMQTT Broker, OU=Redes, O=MiniMQTT Secure, L=Brusque, ST=SC, C=BR" ^
-  -ext "SAN=ip:%BROKER_IP%" ^
-  -noprompt
-
-if errorlevel 1 exit /b 1
-
+rem A CSR contem somente a chave publica e a identidade do broker; ela pode ser
+rem enviada ao professor. A chave privada permanece no broker-keystore.p12.
 "%KEYTOOL%" -certreq ^
   -alias broker ^
   -file "%BASE_DIR%certificados\broker.csr" ^
   -keystore "%BASE_DIR%certificados\broker-keystore.p12" ^
   -storepass broker123 ^
-  -ext "SAN=ip:%BROKER_IP%"
+  -ext "SAN=dns:%BROKER_NAME%"
 
 if errorlevel 1 exit /b 1
 
 echo.
 echo CSR criada em: %BASE_DIR%certificados\broker.csr
+echo Identidade do broker: %BROKER_NAME%
 echo Envie somente broker.csr para a AC/professor.
 echo Nao envie broker-keystore.p12.
 exit /b 0
 
-:invalid_loopback
-echo Informe o IPv4 real da maquina onde o broker roda, nao localhost/127.0.0.1/::1.
-exit /b 1
-
-:invalid_ip
-echo Informe um IPv4 valido da maquina onde o broker roda. Exemplo: %~nx0 192.168.56.10
+:invalid_name
+echo Informe um nome DNS estavel para o broker, nao IP nem localhost.
+echo Exemplo: %~nx0 minimqtt-broker
 exit /b 1

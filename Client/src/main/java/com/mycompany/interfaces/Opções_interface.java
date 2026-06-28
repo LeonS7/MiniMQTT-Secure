@@ -309,23 +309,38 @@ public class Opções_interface extends javax.swing.JFrame implements BrokerClie
         pack();
     }// </editor-fold>//GEN-END:initComponents
     /*Botao para se inscrever no topico informado*/
+    /**
+     * Clique do botao Entrar: solicita inscricao em um topico existente.
+     */
     private void botao_entrar_topicoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_entrar_topicoMouseClicked
         sendTopicCommand(nome_entrar_topico, "subscribe");
     }//GEN-LAST:event_botao_entrar_topicoMouseClicked
     /*Botao para criar um topico*/
+    /**
+     * Clique do botao Criar: solicita criacao de topico no broker.
+     */
     private void botao_criar_topicoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_criar_topicoMouseClicked
         sendTopicCommand(nome_criar_topico, "create");
     }//GEN-LAST:event_botao_criar_topicoMouseClicked
     /*Botao para cancelar a inscrição em um topico*/
+    /**
+     * Clique do botao Cancelar Inscricao: remove o usuario do topico.
+     */
     private void botao_cancelar_topicoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_cancelar_topicoMouseClicked
         sendTopicCommand(nome_cancelar_topico, "unsubscribe");
     }//GEN-LAST:event_botao_cancelar_topicoMouseClicked
     /*Botao para excluir o topico informado (obs: somente o usuario que criou o 
     topico pode excluir este mesmo topico)*/
+    /**
+     * Clique do botao Excluir: pede exclusao do topico, se o broker autorizar.
+     */
     private void botao_excluir_topicoMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_excluir_topicoMouseClicked
         sendTopicCommand(nome_excluir_topico, "delete");
     }//GEN-LAST:event_botao_excluir_topicoMouseClicked
     /*Botao para fechar a interface Configurações e voltar a interface Cliente*/
+    /**
+     * Clique do botao Concluir: fecha a janela de configuracoes.
+     */
     private void botao_concluirMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_botao_concluirMouseClicked
         closeOptions();
     }//GEN-LAST:event_botao_concluirMouseClicked
@@ -437,26 +452,26 @@ public class Opções_interface extends javax.swing.JFrame implements BrokerClie
         dispose();
     }
 
-    @Override
     /**
      * Callback para mensagens de sucesso, erro ou informacao enviadas pelo broker.
      */
+    @Override
     public void onStatus(String message) {
         appendStatus(message);
     }
 
-    @Override
     /**
      * Callback para atualizar a lista de topicos exibida nesta tela.
      */
+    @Override
     public void onTopics(List<String> topics) {
         SwingUtilities.invokeLater(() -> tela_lista_topicos_config.setText(String.join(System.lineSeparator(), topics)));
     }
 
-    @Override
     /**
      * Callback chamado quando a conexao com o broker e encerrada.
      */
+    @Override
     public void onDisconnected() {
         appendStatus("Conexao com o broker encerrada.");
     }
