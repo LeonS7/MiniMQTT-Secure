@@ -8,9 +8,11 @@ if "%~1"=="" (
 )
 
 set "BROKER_IP=%~1"
-if /i "%BROKER_IP%"=="localhost" goto invalid_loopback
-if "%BROKER_IP%"=="::1" goto invalid_loopback
-if "%BROKER_IP:~0,4%"=="127." goto invalid_loopback
+if /i "%BROKER_IP%"=="IP_REAL_DO_BROKER" goto invalid_ip
+
+powershell -NoProfile -Command "$parsed = $null; if (-not [Net.IPAddress]::TryParse($env:BROKER_IP, [ref] $parsed) -or $parsed.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { exit 1 }; if ([Net.IPAddress]::IsLoopback($parsed)) { exit 2 }"
+if errorlevel 2 goto invalid_loopback
+if errorlevel 1 goto invalid_ip
 
 set "BASE_DIR=%~dp0"
 set "KEYTOOL=keytool"
@@ -59,4 +61,8 @@ exit /b 0
 
 :invalid_loopback
 echo Informe o IP real da VM/maquina do broker, nao localhost/127.0.0.1/::1.
+exit /b 1
+
+:invalid_ip
+echo Informe um IPv4 valido da VM/maquina do broker. Exemplo: %~nx0 192.168.56.10
 exit /b 1

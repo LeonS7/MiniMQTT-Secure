@@ -80,7 +80,8 @@ sh request-broker-cert.sh 192.168.56.10
 
 Troque `192.168.56.10` pelo IP real do broker. O projeto nao usa loopback como
 endereco padrao, a descoberta UDP ignora interfaces de loopback e os scripts
-recusam `localhost`, `127.*` e `::1`.
+recusam `localhost`, `127.*`, `::1` e textos de exemplo como
+`IP_REAL_DO_BROKER`.
 
 Envie ao professor somente:
 
