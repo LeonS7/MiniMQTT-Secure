@@ -89,18 +89,18 @@ public final class BrokerDiscovery {
     }
 
     /**
-     * Monta a lista de destinos UDP: broadcast global, localhost e broadcasts
-     * especificos de cada interface de rede ativa.
+     * Monta a lista de destinos UDP: broadcast global e broadcasts especificos
+     * de cada interface de rede ativa. Nao usa loopback, pois nas VMs cada
+     * cliente deve localizar o IP real do broker.
      */
     private static Set<InetAddress> broadcastAddresses() throws IOException {
         Set<InetAddress> addresses = new LinkedHashSet<>();
         addresses.add(InetAddress.getByName("255.255.255.255"));
-        addresses.add(InetAddress.getByName("127.0.0.1"));
 
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
         while (interfaces.hasMoreElements()) {
             NetworkInterface networkInterface = interfaces.nextElement();
-            if (!networkInterface.isUp()) {
+            if (!networkInterface.isUp() || networkInterface.isLoopback()) {
                 continue;
             }
 

@@ -28,10 +28,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class BrokerClient {
 
     /*
-     * Endereco padrao usado quando a descoberta UDP ainda nao configurou outro
-     * host. A porta precisa bater com BrokerServer.DEFAULT_PORT.
+     * Nao existe host padrao fixo. Em execucao com VMs, o broker precisa ser
+     * localizado por descoberta UDP ou informado explicitamente por argumento.
      */
-    public static final String DEFAULT_HOST = "127.0.0.1";
+    public static final String DEFAULT_HOST = "";
     public static final int DEFAULT_PORT = 5000;
 
     private static volatile String configuredHost = DEFAULT_HOST;
@@ -141,9 +141,14 @@ public final class BrokerClient {
         }
 
         this.username = clean(username, "");
+        String targetHost = clean(host, "");
+        if (targetHost.isEmpty()) {
+            throw new IOException("Endereco do broker nao informado.");
+        }
+
         Socket newSocket = new Socket();
         try {
-            newSocket.connect(new InetSocketAddress(host, port), 3000);
+            newSocket.connect(new InetSocketAddress(targetHost, port), 3000);
             socket = newSocket;
             reader = new BufferedReader(new InputStreamReader(newSocket.getInputStream(), StandardCharsets.UTF_8));
             writer = new PrintWriter(newSocket.getOutputStream(), true, StandardCharsets.UTF_8);
@@ -156,7 +161,7 @@ public final class BrokerClient {
             listenerThread.setDaemon(true);
             listenerThread.start();
 
-            fireStatus("Conectado ao broker em " + host + ":" + port + ".");
+            fireStatus("Conectado ao broker em " + targetHost + ":" + port + ".");
         } catch (IOException | GeneralSecurityException | RuntimeException ex) {
             cleanup();
             if (ex instanceof IOException ioException) {
@@ -196,8 +201,8 @@ public final class BrokerClient {
     }
 
     /**
-     * Define o endereco padrao que sera usado por novas conexoes sem parametros.
-     * A descoberta UDP chama este metodo apos localizar o broker.
+     * Define o endereco que sera usado por novas conexoes sem parametros. A
+     * descoberta UDP chama este metodo apos localizar o broker.
      */
     public static void configureDefaultConnection(String host, int port) {
         configuredHost = clean(host, DEFAULT_HOST);
@@ -205,7 +210,7 @@ public final class BrokerClient {
     }
 
     /**
-     * Retorna o host configurado pela descoberta UDP ou o fallback local.
+     * Retorna o host configurado pela descoberta UDP ou por argumento.
      */
     public static String getConfiguredHost() {
         return configuredHost;

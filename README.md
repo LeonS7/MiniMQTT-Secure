@@ -63,6 +63,25 @@ Certificado do broker:
 - `Broker/certificados/broker.csr`: requisicao enviada ao professor/AC.
 - `Broker/certificados/broker.crt`: certificado assinado que o professor devolve.
 
+Para gerar uma CSR sem `localhost` ou `127.0.0.1`, use o IP real da maquina do
+broker. Cada VM deve ter seu proprio IP na rede e o broker deve usar o IP dele:
+
+```powershell
+cd Broker
+.\request-broker-cert.bat 192.168.56.10
+```
+
+No Linux/macOS:
+
+```bash
+cd Broker
+sh request-broker-cert.sh 192.168.56.10
+```
+
+Troque `192.168.56.10` pelo IP real do broker. O projeto nao usa loopback como
+endereco padrao, a descoberta UDP ignora interfaces de loopback e os scripts
+recusam `localhost`, `127.*` e `::1`.
+
 Envie ao professor somente:
 
 ```text
