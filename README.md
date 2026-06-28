@@ -1,35 +1,29 @@
 # MiniMQTT Secure
 
-MiniMQTT Secure is a Java client/broker messaging system inspired by the MQTT
-publish/subscribe model. The project provides a Swing client, a TCP broker,
-client authentication with offline broker-signed certificates, broker
-authentication with an external CA certificate, message buffering, encrypted
-transport, and end-to-end encrypted payloads.
+O **MiniMQTT Secure** é um sistema de mensagens cliente/broker desenvolvido em Java, inspirado no modelo **publish/subscribe** do MQTT. O projeto fornece um cliente com interface Swing, um broker TCP, autenticação de clientes por meio de certificados assinados offline pelo broker, autenticação do broker utilizando um certificado de uma Autoridade Certificadora (CA) externa, bufferização de mensagens, transporte criptografado e criptografia de ponta a ponta das mensagens.
 
-The implementation intentionally does not use TLS. The secure channel between
-clients and broker is implemented with a custom digital envelope based on RSA
-and AES/GCM.
+A implementação foi projetada intencionalmente **sem utilizar TLS**. O canal seguro entre clientes e broker é implementado por meio de um envelope digital personalizado baseado em **RSA** e **AES/GCM**.
 
-Repository: https://github.com/LeonS7/MiniMQTT-Secure
+**Repositório:** https://github.com/LeonS7/MiniMQTT-Secure
 
-## Features
+## Funcionalidades
 
-- TCP broker on port `5000`.
-- UDP broker discovery on port `5001`.
-- Java Swing client interface.
-- Account creation and login with certificate validation.
-- Topic creation, subscription, unsubscription, deletion, and publication.
-- Case-insensitive topic lookup.
-- Automatic subscription for the creator of a topic.
-- Automatic topic removal when the last subscriber leaves.
-- Message origin display with topic and sender.
-- Broker-side buffering of pending messages for offline subscribers.
-- Pending message download after reconnecting.
-- Broker certificate validation using `ca.crt`.
-- Custom encrypted transport without TLS.
-- End-to-end encrypted message payloads.
+* Broker TCP na porta `5000`.
+* Descoberta automática do broker via UDP na porta `5001`.
+* Interface gráfica desenvolvida em Java Swing.
+* Criação de contas e login com validação de certificados.
+* Criação, inscrição, cancelamento de inscrição, exclusão e publicação em tópicos.
+* Busca de tópicos sem diferenciação entre letras maiúsculas e minúsculas.
+* Inscrição automática do criador de um tópico.
+* Remoção automática do tópico quando o último inscrito sai.
+* Exibição da origem da mensagem com o tópico e o remetente.
+* Bufferização de mensagens pendentes no broker para clientes offline.
+* Download automático das mensagens pendentes após a reconexão.
+* Validação do certificado do broker utilizando `ca.crt`.
+* Transporte criptografado personalizado sem utilização de TLS.
+* Criptografia de ponta a ponta do conteúdo das mensagens.
 
-## Project Structure
+## Estrutura do Projeto
 
 ```text
 .
@@ -47,40 +41,39 @@ Repository: https://github.com/LeonS7/MiniMQTT-Secure
 `-- .gitignore
 ```
 
-Generated certificates, private keys, Maven build outputs, and local broker data
-are intentionally ignored by Git.
+Os certificados gerados, chaves privadas, arquivos produzidos pelo Maven e os dados locais do broker são propositalmente ignorados pelo Git.
 
-## Requirements
+## Requisitos
 
-- JDK 17 or newer.
-- Maven.
+* JDK 17 ou superior.
+* Maven.
 
-## Build
+## Compilação
 
-Build the broker:
+Compile o broker:
 
 ```powershell
 cd Broker
 mvn -q -DskipTests package
 ```
 
-Build the client:
+Compile o cliente:
 
 ```powershell
 cd Client
 mvn -q -DskipTests package
 ```
 
-Generated JARs:
+Arquivos JAR gerados:
 
 ```text
 Broker/target/Broker.jar
 Client/target/Client.jar
 ```
 
-## Certificate Layout
+## Estrutura dos Certificados
 
-Broker certificate files:
+Arquivos do certificado do broker:
 
 ```text
 Broker/certificados/ca.crt
@@ -89,88 +82,83 @@ Broker/certificados/broker.csr
 Broker/certificados/broker.crt
 ```
 
-Client certificate files:
+Arquivos dos certificados dos clientes:
 
 ```text
 Client/certificados/ca.crt
-Client/certificados/clientes/<client-name>.cert
-Client/certificados/clientes/<client-name>.private.key
+Client/certificados/clientes/<nome-do-cliente>.cert
+Client/certificados/clientes/<nome-do-cliente>.private.key
 ```
 
-The `broker-keystore.p12` file contains the broker private key and must never be
-sent or committed. The `broker.csr` file contains only the certificate signing
-request and is the file sent to the CA.
+O arquivo `broker-keystore.p12` contém a chave privada do broker e **nunca deve ser enviado ou versionado**. O arquivo `broker.csr` contém apenas a solicitação de assinatura do certificado (CSR) e é o único arquivo que deve ser enviado para a Autoridade Certificadora (CA).
 
-## Broker Certificate Request
+## Solicitação do Certificado do Broker
 
-Generate the broker CSR from the `Broker` module:
+Gere o CSR a partir do módulo `Broker`:
 
 ```powershell
 cd Broker
 .\request-broker-cert.bat
 ```
 
-Linux/macOS equivalent:
+Equivalente para Linux/macOS:
 
 ```bash
 cd Broker
 sh request-broker-cert.sh
 ```
 
-By default, the CSR uses the stable DNS identity:
+Por padrão, o CSR utiliza a identidade DNS estável:
 
 ```text
 minimqtt-broker
 ```
 
-The CSR requests `SAN=dns:minimqtt-broker` instead of binding the broker
-certificate to an IP address. This avoids certificate validation failures when
-the broker runs in a different bridged network and receives a different IP.
+O CSR solicita `SAN=dns:minimqtt-broker` em vez de vincular o certificado a um endereço IP. Isso evita falhas de validação quando o broker é executado em redes diferentes e recebe um novo endereço IP.
 
-Send only this file to the CA:
+Envie apenas o seguinte arquivo para a CA:
 
 ```text
 Broker/certificados/broker.csr
 ```
 
-After receiving the signed certificate, save it as:
+Após receber o certificado assinado, salve-o como:
 
 ```text
 Broker/certificados/broker.crt
 ```
 
-If `broker-keystore.p12` already exists, the script reuses the existing private
-key and generates a new CSR for the same key.
+Se o arquivo `broker-keystore.p12` já existir, o script reutilizará a chave privada existente e gerará um novo CSR para a mesma chave.
 
-To use a custom broker identity:
+Para utilizar uma identidade personalizada:
 
 ```powershell
 cd Broker
-.\request-broker-cert.bat custom-broker-name
+.\request-broker-cert.bat nome-personalizado
 ```
 
-Clients must then be started with the same expected identity:
+Os clientes deverão ser iniciados utilizando a mesma identidade esperada:
 
 ```powershell
-java -Dminimqtt.broker.identity=custom-broker-name -jar target\Client.jar
+java -Dminimqtt.broker.identity=nome-personalizado -jar target\Client.jar
 ```
 
-## Client Certificates
+## Certificados dos Clientes
 
-Client certificates are generated offline by the broker. Build the broker first:
+Os certificados dos clientes são gerados offline pelo broker. Compile o broker primeiro:
 
 ```powershell
 cd Broker
 mvn -q -DskipTests package
 ```
 
-Generate the default VM users:
+Gerar os usuários padrão para máquinas virtuais:
 
 ```powershell
 .\sign-vm-clients.bat
 ```
 
-Default clients:
+Clientes padrão:
 
 ```text
 Cliente1
@@ -178,28 +166,26 @@ Cliente2
 Cliente3
 ```
 
-Generate custom clients:
+Gerar clientes personalizados:
 
 ```powershell
 .\sign-vm-clients.bat VM1 VM2 VM3
 ```
 
-Generated files are stored in:
+Os arquivos gerados são armazenados em:
 
 ```text
 Broker/certificados/clientes/
 ```
 
-When the `Client` module exists beside `Broker`, the scripts also copy the files
-to:
+Quando o módulo `Client` estiver ao lado do módulo `Broker`, os scripts também copiarão automaticamente os arquivos para:
 
 ```text
 Client/certificados/
 Client/certificados/clientes/
 ```
 
-For each VM, copy only the certificate and private key for that user, plus
-`ca.crt`:
+Para cada máquina virtual, copie apenas o certificado e a chave privada correspondentes ao usuário, juntamente com `ca.crt`:
 
 ```text
 Client/certificados/ca.crt
@@ -207,143 +193,149 @@ Client/certificados/clientes/Cliente1.cert
 Client/certificados/clientes/Cliente1.private.key
 ```
 
-The login name must match the certificate file name. Example:
+O nome utilizado no login deve ser exatamente igual ao nome do arquivo do certificado.
+
+Exemplo:
 
 ```text
 Cliente1.cert -> login Cliente1
 ```
 
-## Security Model
+## Modelo de Segurança
 
-### Transport Encryption
+### Criptografia do Transporte
 
-The client/broker TCP channel is protected by a custom digital envelope:
+O canal TCP entre cliente e broker é protegido por um envelope digital personalizado:
 
-1. The broker sends `broker.crt`.
-2. The client validates `broker.crt` using `ca.crt`.
-3. The client checks the broker identity, defaulting to `minimqtt-broker`.
-4. The client generates an AES session key.
-5. The AES key is encrypted with the broker RSA public key using RSA/OAEP.
-6. Protocol messages are encrypted with AES/GCM.
+1. O broker envia `broker.crt`.
+2. O cliente valida `broker.crt` utilizando `ca.crt`.
+3. O cliente verifica a identidade do broker, que por padrão é `minimqtt-broker`.
+4. O cliente gera uma chave de sessão AES.
+5. A chave AES é criptografada com a chave pública RSA do broker utilizando RSA/OAEP.
+6. Todas as mensagens do protocolo passam a ser criptografadas com AES/GCM.
 
-This protects the channel against third-party traffic inspection without using
-TLS.
+Esse mecanismo protege o canal contra interceptação de tráfego sem utilizar TLS.
 
-### Client Authentication
+### Autenticação do Cliente
 
-The client sends its username, password, and broker-signed client certificate.
-The broker validates:
+O cliente envia:
 
-- the account state;
-- the password hash;
-- the certificate owner;
-- the certificate issuer;
-- the broker signature over the certificate fields.
+* Nome de usuário;
+* Senha;
+* Certificado do cliente assinado pelo broker.
 
-The client only sends requests. Authorization and validation rules are enforced
-by the broker.
+O broker valida:
 
-### End-To-End Payload Encryption
+* o estado da conta;
+* o hash da senha;
+* o proprietário do certificado;
+* o emissor do certificado;
+* a assinatura realizada pelo broker sobre os dados do certificado.
 
-Transport encryption protects the TCP channel. In addition, message payloads are
-encrypted end to end:
+O cliente apenas envia requisições. Toda a autorização e validação são realizadas pelo broker.
 
-1. The broker sends topic member public keys to clients.
-2. The sender creates an AES payload key.
-3. The payload is encrypted with AES/GCM.
-4. The payload key is encrypted with RSA/OAEP for each recipient.
-5. The broker stores and forwards only the encrypted envelope.
+### Criptografia de Ponta a Ponta
 
-The broker can route messages by topic and sender, but it cannot decrypt the
-payload content.
+Além da criptografia do transporte, o conteúdo das mensagens também é protegido por criptografia de ponta a ponta:
 
-## Running
+1. O broker envia as chaves públicas dos participantes do tópico.
+2. O remetente gera uma chave AES para a mensagem.
+3. O conteúdo é criptografado utilizando AES/GCM.
+4. A chave AES é criptografada com RSA/OAEP para cada destinatário.
+5. O broker apenas armazena e encaminha o envelope criptografado.
 
-Start the broker:
+Assim, o broker consegue encaminhar mensagens com base no tópico e no remetente, porém **não consegue descriptografar o conteúdo das mensagens**.
+
+## Execução
+
+Inicie o broker:
 
 ```powershell
 cd Broker
 java -jar target\Broker.jar
 ```
 
-Start a client:
+Inicie um cliente:
 
 ```powershell
 cd Client
 java -jar target\Client.jar
 ```
 
-In bridged VM networks, UDP broadcast discovery may be blocked. In that case,
-start the client with the current broker IP:
+Em redes de máquinas virtuais configuradas em modo *bridged*, a descoberta via broadcast UDP pode ser bloqueada. Nesse caso, inicie o cliente informando manualmente o endereço IP do broker:
 
 ```powershell
-java -jar target\Client.jar <broker-ip> 5000
+java -jar target\Client.jar <ip-do-broker> 5000
 ```
 
-Do not use `127.0.0.1` from a VM to reach the broker on the host machine. In a
-VM, `127.0.0.1` points to the VM itself.
+Não utilize `127.0.0.1` para acessar o broker a partir de uma máquina virtual, pois esse endereço sempre referencia a própria máquina virtual.
 
-## Functional Validation
+## Validação Funcional
 
-Recommended validation flow:
+Fluxo recomendado para validação:
 
-1. Build `Broker` and `Client`.
-2. Generate or copy the broker certificate signed by the CA.
-3. Generate client certificates with `sign-vm-clients`.
-4. Copy `ca.crt`, `.cert`, and `.private.key` to each VM.
-5. Start the broker.
-6. Start three clients.
-7. Create accounts using the names from the certificates.
-8. Create a topic with one client.
-9. Subscribe the other clients to the topic.
-10. Enter the topic from the main client window.
-11. Send messages and verify topic/sender display.
-12. Disconnect one subscribed client, send messages, reconnect, and verify
-    pending message download.
-13. Cancel subscriptions until the last subscriber leaves and verify automatic
-    topic removal.
+1. Compile os módulos `Broker` e `Client`.
+2. Gere ou copie o certificado do broker assinado pela CA.
+3. Gere os certificados dos clientes utilizando `sign-vm-clients`.
+4. Copie `ca.crt`, `.cert` e `.private.key` para cada máquina virtual.
+5. Inicie o broker.
+6. Inicie três clientes.
+7. Crie as contas utilizando os nomes presentes nos certificados.
+8. Crie um tópico com um dos clientes.
+9. Inscreva os demais clientes no tópico.
+10. Entre no tópico pela janela principal.
+11. Envie mensagens e verifique a exibição do tópico e do remetente.
+12. Desconecte um cliente inscrito, envie mensagens, reconecte-o e confirme o download das mensagens pendentes.
+13. Cancele as inscrições até que reste apenas um participante e verifique a remoção automática do tópico.
 
-## Troubleshooting
+## Solução de Problemas
 
-`Certificado nao encontrado.`
+### `Certificado nao encontrado.`
 
-- The `.cert` file is missing from `Client/certificados/clientes`.
-- The login name does not match the certificate file name.
+* O arquivo `.cert` não está presente em `Client/certificados/clientes`.
+* O nome de login não corresponde ao nome do arquivo do certificado.
 
-`Chave privada nao encontrada.`
+### `Chave privada nao encontrada.`
 
-- The `.private.key` file is missing from `Client/certificados/clientes`.
+* O arquivo `.private.key` não está presente em `Client/certificados/clientes`.
 
-`Certificado da AC nao encontrado.`
+### `Certificado da AC nao encontrado.`
 
-- `Client/certificados/ca.crt` is missing.
+* O arquivo `Client/certificados/ca.crt` está ausente.
 
-`Assinatura invalida.`
+### `Assinatura invalida.`
 
-- The client certificate was generated by another broker key.
-- `broker.crt` was not signed by the expected CA.
-- `broker.crt` does not match `broker-keystore.p12`.
+* O certificado do cliente foi gerado por outra chave do broker.
+* `broker.crt` não foi assinado pela Autoridade Certificadora esperada.
+* `broker.crt` não corresponde ao arquivo `broker-keystore.p12`.
 
-`Identidade do broker invalida.`
+### `Identidade do broker invalida.`
 
-- The signed broker certificate does not contain the expected DNS identity.
-- Regenerate the CSR with `request-broker-cert`.
-- If a custom identity is used, start the client with
-  `-Dminimqtt.broker.identity=<name>`.
+* O certificado assinado do broker não contém a identidade DNS esperada.
+* Gere novamente o CSR utilizando `request-broker-cert`.
+* Caso utilize uma identidade personalizada, inicie o cliente com:
 
-`Broker nao encontrado.`
+```text
+-Dminimqtt.broker.identity=<nome>
+```
 
-- UDP discovery may be blocked by the network.
-- Start the client with `java -jar target\Client.jar <broker-ip> 5000`.
+### `Broker nao encontrado.`
 
-`Voce nao esta inscrito.`
+* A descoberta via UDP pode estar sendo bloqueada pela rede.
+* Inicie o cliente manualmente:
 
-- The main window `Entrar` button opens a conversation only after subscription.
-- Subscribe to the topic in the configuration window first.
+```powershell
+java -jar target\Client.jar <ip-do-broker> 5000
+```
 
-## Ignored Files
+### `Voce nao esta inscrito.`
 
-The following files must stay out of version control:
+* O botão **Entrar** da janela principal somente abre uma conversa após a inscrição no tópico.
+* Realize a inscrição na janela de configuração antes de tentar entrar.
+
+## Arquivos Ignorados
+
+Os seguintes arquivos e diretórios devem permanecer fora do controle de versão:
 
 ```text
 target/
