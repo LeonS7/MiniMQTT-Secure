@@ -1,15 +1,21 @@
-package com.mycompany.broker;
+package com.mycompany.offlinecert;
 
+import com.mycompany.broker.BrokerCertificateSupport;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 
 /**
- * Ferramenta de linha de comando para a etapa offline da parcial 2.
+ * Ferramenta de linha de comando para a assinatura offline de certificados.
+ *
+ * Esta classe fica no pacote offlinecert porque nao participa da execucao do
+ * BrokerServer. Ela e empacotada no Broker.jar apenas para que os scripts
+ * sign-client.bat, sign-vm-clients.bat e equivalentes .sh consigam chamar uma
+ * rotina Java confiavel para gerar certificados antes da apresentacao.
  *
  * Comandos aceitos:
- * java -cp Broker.jar com.mycompany.broker.CertificateTool init-server
- * java -cp Broker.jar com.mycompany.broker.CertificateTool sign-client nomeCliente [pastaSaida]
+ * java -cp Broker.jar com.mycompany.offlinecert.CertificateTool init-server
+ * java -cp Broker.jar com.mycompany.offlinecert.CertificateTool sign-client nomeCliente [pastaSaida]
  */
 public final class CertificateTool {
 
@@ -39,7 +45,7 @@ public final class CertificateTool {
                     }
                     Path outputDirectory = args.length >= 3
                             ? Path.of(args[2])
-                            : BrokerCertificateSupport.defaultClientCertificateDirectory();
+                            : OfflineCertificateSupport.defaultClientCertificateDirectory();
                     signClient(args[1], outputDirectory);
                     break;
                 default:
@@ -70,11 +76,14 @@ public final class CertificateTool {
     public static Path signClient(String clientName, Path outputDirectory)
             throws IOException, GeneralSecurityException {
         initializeServerKeys();
-        Path certificatePath = BrokerCertificateSupport.writeClientCertificate(clientName, outputDirectory);
+        Path targetDirectory = outputDirectory == null
+                ? OfflineCertificateSupport.defaultClientCertificateDirectory()
+                : outputDirectory;
+        Path certificatePath = OfflineCertificateSupport.writeClientCertificate(clientName, targetDirectory);
         String safeName = BrokerCertificateSupport.safeFileName(clientName);
 
         System.out.println("Certificado criado: " + certificatePath);
-        System.out.println("Chave privada do cliente: " + outputDirectory.resolve(safeName + ".private.key"));
+        System.out.println("Chave privada do cliente: " + targetDirectory.resolve(safeName + ".private.key"));
         System.out.println("Copie o .cert e o .private.key para Client/certificados/clientes.");
         System.out.println("Copie tambem ca.crt para Client/certificados.");
         return certificatePath;
@@ -86,7 +95,7 @@ public final class CertificateTool {
      */
     private static void printUsage() {
         System.out.println("Uso:");
-        System.out.println("  java -cp Broker.jar com.mycompany.broker.CertificateTool init-server");
-        System.out.println("  java -cp Broker.jar com.mycompany.broker.CertificateTool sign-client nomeCliente [pastaSaida]");
+        System.out.println("  java -cp Broker.jar com.mycompany.offlinecert.CertificateTool init-server");
+        System.out.println("  java -cp Broker.jar com.mycompany.offlinecert.CertificateTool sign-client nomeCliente [pastaSaida]");
     }
 }

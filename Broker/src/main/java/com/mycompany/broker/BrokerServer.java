@@ -298,7 +298,7 @@ public final class BrokerServer {
                 case "DOWNLOAD_PENDING":
                     requireAuthenticated(client);
                     downloadPendingMessages(client);
-                    client.sendOk("DOWNLOAD_PENDING", "Mensagens pendentes baixadas.");
+                    client.sendOk("DOWNLOAD_PENDING", "Pendencias do topico ativo baixadas.");
                     break;
                 case "DISCONNECT":
                     client.close();
@@ -328,7 +328,8 @@ public final class BrokerServer {
 
     /**
      * Cria um topico se ele ainda nao existir e registra o cliente criador como
-     * proprietario e primeiro inscrito.
+     * proprietario e primeiro inscrito. A conversa so fica ativa quando o
+     * cliente usa ENTER_TOPIC pela tela principal.
      */
     private synchronized void createTopic(ClientHandler client, String topicName) {
         Topic existing = findTopic(topicName);
@@ -338,8 +339,7 @@ public final class BrokerServer {
         topics.put(topic.name, topic);
 
         topic.members.add(client.getName());
-        topic.subscribers.add(client);
-        client.subscriptions.add(topicName);
+        client.subscriptions.add(topic.name);
         client.sendOk("CREATE_TOPIC", "Topico criado e inscricao realizada: " + topicName, topicName);
         sendTopicKeys(topic, client);
         log(client.getName() + " criou o topico " + topicName + ".");
@@ -348,20 +348,18 @@ public final class BrokerServer {
     }
 
     /**
-     * Inscreve o cliente em um topico existente para que ele receba publicacoes
-     * futuras desse topico.
+     * Inscreve o cliente em um topico existente. A inscricao autoriza receber
+     * mensagens, mas elas so sao entregues quando o topico estiver ativo.
      */
     private void subscribe(ClientHandler client, String topicName) {
         Topic topic = findTopic(topicName);
         verifier.verifyTopicExists(topicName, topic != null);
 
         topic.members.add(client.getName());
-        topic.subscribers.add(client);
         client.subscriptions.add(topic.name);
         client.sendOk("SUBSCRIBE", "Inscrito no topico: " + topic.name, topic.name);
         broadcastTopicKeys(topic);
-        downloadPendingMessages(client, topic.name);
-        log(client.getName() + " entrou no topico " + topic.name + ".");
+        log(client.getName() + " se inscreveu no topico " + topic.name + ".");
         notifySnapshot();
     }
 
@@ -373,11 +371,31 @@ public final class BrokerServer {
         verifier.verifyTopicExists(topicName, topic != null);
         verifier.verifyClientSubscribed(topic.name, topic.members.contains(client.getName()));
 
-        client.subscriptions.add(topic.name);
-        topic.subscribers.add(client);
+        activateTopic(client, topic);
         sendTopicKeys(topic, client);
         downloadPendingMessages(client, topic.name);
         client.sendOk("ENTER_TOPIC", "Topico aberto.", topic.name);
+    }
+
+    /**
+     * Define qual topico esta aberto na tela de chat do cliente.
+     *
+     * O cliente pode estar inscrito em varios topicos, mas apenas o topico
+     * ativo recebe mensagens imediatamente. As mensagens dos outros topicos
+     * continuam no buffer ate o cliente entrar neles.
+     */
+    private void activateTopic(ClientHandler client, Topic topic) {
+        String previousTopicName = client.activeTopic;
+        if (!previousTopicName.isBlank() && !previousTopicName.equals(topic.name)) {
+            Topic previousTopic = findTopic(previousTopicName);
+            if (previousTopic != null) {
+                previousTopic.activeSubscribers.remove(client);
+            }
+        }
+
+        client.subscriptions.add(topic.name);
+        client.activeTopic = topic.name;
+        topic.activeSubscribers.add(client);
     }
 
     /**
@@ -390,8 +408,11 @@ public final class BrokerServer {
         verifier.verifyClientSubscribed(topicName, topic.members.contains(client.getName()));
 
         topic.members.remove(client.getName());
-        topic.subscribers.remove(client);
+        topic.activeSubscribers.remove(client);
         client.subscriptions.remove(topic.name);
+        if (topic.name.equals(client.activeTopic)) {
+            client.activeTopic = "";
+        }
         removePendingRecipient(topic, client.getName());
 
         if (topic.members.isEmpty() && topics.remove(topic.name, topic)) {
@@ -420,9 +441,13 @@ public final class BrokerServer {
         verifier.verifyTopicDeletion(client.getName(), topic.owner);
 
         if (topics.remove(topic.name, topic)) {
-            for (ClientHandler subscriber : new ArrayList<>(topic.subscribers)) {
-                subscriber.subscriptions.remove(topic.name);
-                subscriber.sendInfo("Topico excluido: " + topic.name);
+            for (ClientHandler connectedClient : new ArrayList<>(clients)) {
+                if (connectedClient.subscriptions.remove(topic.name) || topic.members.contains(connectedClient.getName())) {
+                    if (topic.name.equals(connectedClient.activeTopic)) {
+                        connectedClient.activeTopic = "";
+                    }
+                    connectedClient.sendInfo("Topico excluido: " + topic.name);
+                }
             }
             client.sendOk("DELETE_TOPIC", "Topico excluido: " + topic.name, topic.name);
             log(client.getName() + " excluiu o topico " + topic.name + ".");
@@ -460,6 +485,7 @@ public final class BrokerServer {
             deliverPendingMessages(topic);
         }
         client.sendOk("PUBLISH", "Mensagem enviada.", topic.name);
+        logEncryptedPayload(client.getName(), topic.name, cleanMessage);
         log(client.getName() + " publicou mensagem criptografada em " + topic.name + ".");
     }
 
@@ -475,10 +501,11 @@ public final class BrokerServer {
         for (String topicName : new ArrayList<>(client.subscriptions)) {
             Topic topic = topics.get(topicName);
             if (topic != null) {
-                topic.subscribers.remove(client);
+                topic.activeSubscribers.remove(client);
             }
         }
         client.subscriptions.clear();
+        client.activeTopic = "";
         log("Cliente desconectado: " + client.getName() + ".");
         notifySnapshot();
     }
@@ -489,9 +516,9 @@ public final class BrokerServer {
      */
     private void restoreClientSubscriptions(ClientHandler client) {
         client.subscriptions.clear();
+        client.activeTopic = "";
         for (Topic topic : topics.values()) {
             if (topic.members.contains(client.getName())) {
-                topic.subscribers.add(client);
                 client.subscriptions.add(topic.name);
             }
         }
@@ -510,11 +537,12 @@ public final class BrokerServer {
     }
 
     /**
-     * Faz download de todas as mensagens pendentes do cliente autenticado.
+     * Faz download das mensagens pendentes somente do topico aberto no chat.
      */
     private void downloadPendingMessages(ClientHandler client) {
-        for (String topicName : new ArrayList<>(client.subscriptions)) {
-            downloadPendingMessages(client, topicName);
+        String activeTopic = client.activeTopic;
+        if (!activeTopic.isBlank()) {
+            downloadPendingMessages(client, activeTopic);
         }
     }
 
@@ -531,11 +559,11 @@ public final class BrokerServer {
     }
 
     /**
-     * Tenta entregar mensagens pendentes para todos os membros conectados do
-     * topico.
+     * Tenta entregar mensagens pendentes para os membros conectados que estao
+     * com este topico aberto no chat.
      */
     private void deliverPendingMessages(Topic topic) {
-        for (ClientHandler subscriber : new ArrayList<>(topic.subscribers)) {
+        for (ClientHandler subscriber : new ArrayList<>(topic.activeSubscribers)) {
             deliverPendingMessages(topic, subscriber);
         }
         purgeDeliveredMessages(topic);
@@ -546,7 +574,7 @@ public final class BrokerServer {
      * de destinatarios pendentes.
      */
     private void deliverPendingMessages(Topic topic, ClientHandler client) {
-        if (!topic.members.contains(client.getName())) {
+        if (!topic.members.contains(client.getName()) || !topic.name.equals(client.activeTopic)) {
             return;
         }
 
@@ -601,7 +629,7 @@ public final class BrokerServer {
      * Atualiza os clientes online de um topico quando a lista de membros muda.
      */
     private void broadcastTopicKeys(Topic topic) {
-        for (ClientHandler subscriber : new ArrayList<>(topic.subscribers)) {
+        for (ClientHandler subscriber : new ArrayList<>(topic.activeSubscribers)) {
             sendTopicKeys(topic, subscriber);
         }
     }
@@ -718,6 +746,31 @@ public final class BrokerServer {
     }
 
     /**
+     * Mostra no log do broker o envelope ponta a ponta recebido.
+     *
+     * O broker registra o texto cifrado para demonstrar que o payload chega
+     * criptografado e que a descriptografia acontece apenas no cliente.
+     */
+    private void logEncryptedPayload(String sender, String topicName, String encryptedPayload) {
+        log("Payload criptografado recebido de " + sender + " em " + topicName + ": "
+                + compactEncryptedPayload(encryptedPayload));
+    }
+
+    /**
+     * Compacta o envelope criptografado para caber em uma linha de log.
+     */
+    private static String compactEncryptedPayload(String encryptedPayload) {
+        String compact = (encryptedPayload == null ? "" : encryptedPayload)
+                .replace("\r", "")
+                .replace("\n", " | ");
+        int maxLength = 900;
+        if (compact.length() <= maxLength) {
+            return compact;
+        }
+        return compact.substring(0, maxLength) + "...";
+    }
+
+    /**
      * Fecha o socket TCP principal. Fechar o socket desbloqueia accept() e
      * permite que a thread de aceite termine.
      */
@@ -803,6 +856,7 @@ public final class BrokerServer {
         private final Socket socket;
         private final Set<String> subscriptions = ConcurrentHashMap.newKeySet();
         private volatile String name;
+        private volatile String activeTopic = "";
         private volatile PrintWriter writer;
         private volatile boolean connected = true;
         private volatile boolean authenticated;
@@ -996,10 +1050,10 @@ public final class BrokerServer {
 
         /*
          * members guarda todos os clientes inscritos, inclusive os offline. Ja
-         * subscribers guarda somente conexoes atualmente abertas.
+         * activeSubscribers guarda somente conexoes com este topico aberto no chat.
          */
         private final Set<String> members = ConcurrentHashMap.newKeySet();
-        private final Set<ClientHandler> subscribers = ConcurrentHashMap.newKeySet();
+        private final Set<ClientHandler> activeSubscribers = ConcurrentHashMap.newKeySet();
 
         /*
          * Buffer de mensagens que ainda nao foram baixadas por todos os members.

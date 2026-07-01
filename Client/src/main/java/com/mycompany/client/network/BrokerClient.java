@@ -279,7 +279,7 @@ public final class BrokerClient {
     }
 
     /**
-     * Pede ao broker o download de mensagens pendentes dos topicos inscritos.
+     * Pede ao broker o download de mensagens pendentes do topico ativo.
      */
     public void downloadPendingMessages() {
         send("DOWNLOAD_PENDING");
@@ -450,6 +450,7 @@ public final class BrokerClient {
         String encryptedPayload = decode(parts[3]);
         try {
             String plainMessage = EndToEndEnvelope.decrypt(encryptedPayload, username, clientPrivateKey);
+            fireStatus("Mensagem descriptografada do topico " + topic + ".");
             fireMessage(topic, sender, plainMessage);
         } catch (IOException | GeneralSecurityException ex) {
             fireMessage(topic, sender, "[mensagem criptografada indisponivel]");

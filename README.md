@@ -34,7 +34,8 @@ Repository: https://github.com/LeonS7/MiniMQTT-Secure
 ```text
 .
 |-- Broker/
-|   |-- src/main/java/
+|   |-- src/main/java/com/mycompany/broker/
+|   |-- src/main/java/com/mycompany/offlinecert/
 |   |-- request-broker-cert.bat
 |   |-- request-broker-cert.sh
 |   |-- sign-client.bat
@@ -49,6 +50,10 @@ Repository: https://github.com/LeonS7/MiniMQTT-Secure
 
 Generated certificates, private keys, Maven build outputs, and local broker data
 are intentionally ignored by Git.
+
+The `offlinecert` package contains only the local certificate signing tool used
+by `sign-client` and `sign-vm-clients` scripts. The running broker does not call
+those classes during normal message handling.
 
 ## Requirements
 

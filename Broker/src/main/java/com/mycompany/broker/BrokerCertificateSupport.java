@@ -12,43 +12,42 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
-import java.util.Properties;
 
 /**
- * Classe utilitaria de certificados usados pelo broker na parcial 2.
+ * Classe utilitaria de certificados usados pelo broker em tempo de execucao.
  *
- * O papel dela e simples: garantir que o broker tenha um par de chaves RSA e
- * gerar certificados de clientes assinados offline pela chave privada do broker.
- * A validacao desses certificados acontece no BrokerVerificationService.
+ * Ela centraliza caminhos, constantes e leitura das chaves que o BrokerServer,
+ * BrokerTransportSecurity e BrokerVerificationService precisam enquanto o
+ * broker esta rodando. A emissao offline de certificados de clientes fica no
+ * pacote com.mycompany.offlinecert para deixar claro que essa etapa e chamada
+ * pelos scripts .bat/.sh, nao pelo servidor durante a execucao normal.
  */
-final class BrokerCertificateSupport {
+public final class BrokerCertificateSupport {
 
     /*
      * Tipo e emissor esperados em certificados de clientes emitidos pelo broker.
      */
-    static final String CLIENT_CERTIFICATE_TYPE = "AV3_CLIENT_CERTIFICATE_V1";
-    static final String CERTIFICATE_TYPE = CLIENT_CERTIFICATE_TYPE;
-    static final String BROKER_ISSUER = "AV3_BROKER";
-    static final String ISSUER = BROKER_ISSUER;
+    public static final String CLIENT_CERTIFICATE_TYPE = "AV3_CLIENT_CERTIFICATE_V1";
+    public static final String CERTIFICATE_TYPE = CLIENT_CERTIFICATE_TYPE;
+    public static final String BROKER_ISSUER = "AV3_BROKER";
+    public static final String ISSUER = BROKER_ISSUER;
 
     /*
      * Algoritmos usados para chaves e assinaturas digitais.
      */
-    static final String KEY_ALGORITHM = "RSA";
-    static final String SIGNATURE_ALGORITHM = "SHA256withRSA";
+    public static final String KEY_ALGORITHM = "RSA";
+    public static final String SIGNATURE_ALGORITHM = "SHA256withRSA";
 
     /*
      * Arquivos necessarios para a parcial 2. A chave privada nunca deve sair do
      * broker.
      */
-    static final String SERVER_PRIVATE_KEY_FILE = "servidor_privada.key";
-    static final String SERVER_PUBLIC_KEY_FILE = "servidor_publica.key";
+    public static final String SERVER_PRIVATE_KEY_FILE = "servidor_privada.key";
+    public static final String SERVER_PUBLIC_KEY_FILE = "servidor_publica.key";
 
     /**
      * Impede instanciacao porque todos os metodos sao estaticos.
@@ -59,35 +58,28 @@ final class BrokerCertificateSupport {
     /**
      * Pasta padrao onde ficam as chaves do broker e certificados de clientes.
      */
-    static Path certificateDirectory() {
+    public static Path certificateDirectory() {
         return applicationDirectory().resolve("certificados");
     }
 
     /**
      * Caminho da chave privada do broker, usada para assinar clientes.
      */
-    static Path serverPrivateKeyPath() {
+    public static Path serverPrivateKeyPath() {
         return certificateDirectory().resolve(SERVER_PRIVATE_KEY_FILE);
     }
 
     /**
      * Caminho da chave publica do broker, usada para validar assinaturas.
      */
-    static Path serverPublicKeyPath() {
+    public static Path serverPublicKeyPath() {
         return certificateDirectory().resolve(SERVER_PUBLIC_KEY_FILE);
-    }
-
-    /**
-     * Pasta padrao onde a ferramenta offline grava certificados de clientes.
-     */
-    static Path defaultClientCertificateDirectory() {
-        return certificateDirectory().resolve("clientes");
     }
 
     /**
      * Gera um par de chaves RSA novo.
      */
-    static KeyPair generateKeyPair() throws GeneralSecurityException {
+    public static KeyPair generateKeyPair() throws GeneralSecurityException {
         KeyPairGenerator generator = KeyPairGenerator.getInstance(KEY_ALGORITHM);
         generator.initialize(2048);
         return generator.generateKeyPair();
@@ -98,7 +90,7 @@ final class BrokerCertificateSupport {
      *
      * @return true quando criou as chaves agora; false quando elas ja existiam.
      */
-    static boolean ensureServerKeys() throws IOException, GeneralSecurityException {
+    public static boolean ensureServerKeys() throws IOException, GeneralSecurityException {
         Path privateKeyPath = serverPrivateKeyPath();
         Path publicKeyPath = serverPublicKeyPath();
 
@@ -119,54 +111,9 @@ final class BrokerCertificateSupport {
     }
 
     /**
-     * Cria um certificado de cliente assinado pela chave privada do broker.
-     */
-    static Path writeClientCertificate(String clientName, Path outputDirectory)
-            throws IOException, GeneralSecurityException {
-        ensureServerKeys();
-
-        String cleanName = clientName == null ? "" : clientName.trim();
-        if (cleanName.isEmpty()) {
-            throw new IllegalArgumentException("Nome do cliente nao informado.");
-        }
-
-        Files.createDirectories(outputDirectory);
-        String safeName = safeFileName(cleanName);
-
-        KeyPair clientKeyPair = generateKeyPair();
-        Path privateKeyPath = outputDirectory.resolve(safeName + ".private.key");
-        Path publicKeyPath = outputDirectory.resolve(safeName + ".public.key");
-        Path certificatePath = outputDirectory.resolve(safeName + ".cert");
-
-        writePrivateKey(privateKeyPath, clientKeyPair.getPrivate());
-        writePublicKey(publicKeyPath, clientKeyPair.getPublic());
-
-        String subject = encodeText(cleanName);
-        String publicKey = encodeBytes(clientKeyPair.getPublic().getEncoded());
-        String issuedAt = Instant.now().toString();
-        String signature = signPayload(
-                CLIENT_CERTIFICATE_TYPE,
-                subject,
-                publicKey,
-                BROKER_ISSUER,
-                issuedAt,
-                readPrivateKey(serverPrivateKeyPath()));
-
-        writeCertificate(certificatePath,
-                CLIENT_CERTIFICATE_TYPE,
-                subject,
-                publicKey,
-                BROKER_ISSUER,
-                issuedAt,
-                signature);
-
-        return certificatePath;
-    }
-
-    /**
      * Le uma chave publica salva em Base64 MIME.
      */
-    static PublicKey readPublicKey(Path path) throws IOException, GeneralSecurityException {
+    public static PublicKey readPublicKey(Path path) throws IOException, GeneralSecurityException {
         byte[] encoded = Base64.getMimeDecoder().decode(Files.readString(path, StandardCharsets.UTF_8));
         return publicKeyFromBytes(encoded);
     }
@@ -174,7 +121,7 @@ final class BrokerCertificateSupport {
     /**
      * Le uma chave privada salva em Base64 MIME.
      */
-    static PrivateKey readPrivateKey(Path path) throws IOException, GeneralSecurityException {
+    public static PrivateKey readPrivateKey(Path path) throws IOException, GeneralSecurityException {
         byte[] encoded = Base64.getMimeDecoder().decode(Files.readString(path, StandardCharsets.UTF_8));
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
         return KeyFactory.getInstance(KEY_ALGORITHM).generatePrivate(keySpec);
@@ -183,7 +130,7 @@ final class BrokerCertificateSupport {
     /**
      * Converte bytes X.509 em uma chave publica RSA.
      */
-    static PublicKey publicKeyFromBytes(byte[] encoded) throws GeneralSecurityException {
+    public static PublicKey publicKeyFromBytes(byte[] encoded) throws GeneralSecurityException {
         X509EncodedKeySpec keySpec = new X509EncodedKeySpec(encoded);
         return KeyFactory.getInstance(KEY_ALGORITHM).generatePublic(keySpec);
     }
@@ -191,7 +138,7 @@ final class BrokerCertificateSupport {
     /**
      * Grava uma chave publica em arquivo texto Base64.
      */
-    static void writePublicKey(Path path, PublicKey publicKey) throws IOException {
+    public static void writePublicKey(Path path, PublicKey publicKey) throws IOException {
         Files.createDirectories(path.getParent());
         Files.writeString(path, Base64.getMimeEncoder(64, System.lineSeparator().getBytes(StandardCharsets.UTF_8))
                 .encodeToString(publicKey.getEncoded()), StandardCharsets.UTF_8);
@@ -200,7 +147,7 @@ final class BrokerCertificateSupport {
     /**
      * Grava uma chave privada em arquivo texto Base64.
      */
-    static void writePrivateKey(Path path, PrivateKey privateKey) throws IOException {
+    public static void writePrivateKey(Path path, PrivateKey privateKey) throws IOException {
         Files.createDirectories(path.getParent());
         Files.writeString(path, Base64.getMimeEncoder(64, System.lineSeparator().getBytes(StandardCharsets.UTF_8))
                 .encodeToString(privateKey.getEncoded()), StandardCharsets.UTF_8);
@@ -209,7 +156,7 @@ final class BrokerCertificateSupport {
     /**
      * Monta o conteudo exato que e assinado no certificado.
      */
-    static String signaturePayload(String type, String subject, String publicKey, String issuer, String issuedAt) {
+    public static String signaturePayload(String type, String subject, String publicKey, String issuer, String issuedAt) {
         return type + "\n"
                 + subject + "\n"
                 + publicKey + "\n"
@@ -218,44 +165,9 @@ final class BrokerCertificateSupport {
     }
 
     /**
-     * Assina o conteudo do certificado com a chave privada informada.
-     */
-    static String signPayload(String type, String subject, String publicKey, String issuer, String issuedAt, PrivateKey privateKey)
-            throws GeneralSecurityException {
-        Signature signer = Signature.getInstance(SIGNATURE_ALGORITHM);
-        signer.initSign(privateKey);
-        signer.update(signaturePayload(type, subject, publicKey, issuer, issuedAt).getBytes(StandardCharsets.UTF_8));
-        return encodeBytes(signer.sign());
-    }
-
-    /**
-     * Grava o certificado em formato simples de propriedades chave=valor.
-     */
-    static void writeCertificate(Path path, String type, String subject, String publicKey, String issuer,
-            String issuedAt, String signature) throws IOException {
-        Files.createDirectories(path.getParent());
-        Properties certificate = new Properties();
-        certificate.setProperty("type", type);
-        certificate.setProperty("subject", subject);
-        certificate.setProperty("publicKey", publicKey);
-        certificate.setProperty("issuer", issuer);
-        certificate.setProperty("issuedAt", issuedAt);
-        certificate.setProperty("signature", signature);
-
-        StringBuilder content = new StringBuilder();
-        content.append("type=").append(certificate.getProperty("type")).append(System.lineSeparator());
-        content.append("subject=").append(certificate.getProperty("subject")).append(System.lineSeparator());
-        content.append("publicKey=").append(certificate.getProperty("publicKey")).append(System.lineSeparator());
-        content.append("issuer=").append(certificate.getProperty("issuer")).append(System.lineSeparator());
-        content.append("issuedAt=").append(certificate.getProperty("issuedAt")).append(System.lineSeparator());
-        content.append("signature=").append(certificate.getProperty("signature")).append(System.lineSeparator());
-        Files.writeString(path, content.toString(), StandardCharsets.UTF_8);
-    }
-
-    /**
      * Codifica texto em Base64 URL-safe.
      */
-    static String encodeText(String value) {
+    public static String encodeText(String value) {
         String safe = value == null ? "" : value;
         return Base64.getUrlEncoder()
                 .withoutPadding()
@@ -265,7 +177,7 @@ final class BrokerCertificateSupport {
     /**
      * Decodifica texto em Base64 URL-safe.
      */
-    static String decodeText(String value) {
+    public static String decodeText(String value) {
         byte[] decoded = Base64.getUrlDecoder().decode(value);
         return new String(decoded, StandardCharsets.UTF_8);
     }
@@ -273,7 +185,7 @@ final class BrokerCertificateSupport {
     /**
      * Codifica bytes em Base64 URL-safe.
      */
-    static String encodeBytes(byte[] value) {
+    public static String encodeBytes(byte[] value) {
         return Base64.getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(value);
@@ -282,14 +194,14 @@ final class BrokerCertificateSupport {
     /**
      * Decodifica bytes em Base64 URL-safe.
      */
-    static byte[] decodeBytes(String value) {
+    public static byte[] decodeBytes(String value) {
         return Base64.getUrlDecoder().decode(value);
     }
 
     /**
      * Transforma nomes de clientes em nomes de arquivo seguros.
      */
-    static String safeFileName(String value) {
+    public static String safeFileName(String value) {
         String clean = value == null ? "" : value.trim();
         if (clean.isEmpty()) {
             return "cliente";

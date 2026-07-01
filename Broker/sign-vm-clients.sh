@@ -5,9 +5,12 @@ set -eu
 # Sem argumentos, gera Cliente1, Cliente2 e Cliente3.
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 BROKER_JAR="$SCRIPT_DIR/target/Broker.jar"
+BROKER_CERT_DIR="$SCRIPT_DIR/certificados/clientes"
 CLIENT_CERT_DIR="$SCRIPT_DIR/../Client/certificados/clientes"
 
-# O CertificateTool fica dentro do Broker.jar, por isso o build precisa existir.
+# A ferramenta offline fica em com.mycompany.offlinecert dentro do Broker.jar.
+# Ela nao e usada pelo BrokerServer; existe aqui apenas para os scripts gerarem
+# certificados antes da execucao dos clientes/VMs.
 if [ ! -f "$BROKER_JAR" ]; then
     echo "Broker.jar nao encontrado em: $BROKER_JAR"
     echo "Compile o broker antes com: mvn -q -DskipTests package"
@@ -31,7 +34,7 @@ fi
 for client_name in "$@"; do
     echo
     echo "Gerando certificado para $client_name..."
-    java -cp "$BROKER_JAR" com.mycompany.broker.CertificateTool sign-client "$client_name"
+    java -cp "$BROKER_JAR" com.mycompany.offlinecert.CertificateTool sign-client "$client_name" "$BROKER_CERT_DIR"
 
     if [ -d "$CLIENT_CERT_DIR" ]; then
         cp "$SCRIPT_DIR/certificados/clientes/$client_name.cert" "$CLIENT_CERT_DIR/"

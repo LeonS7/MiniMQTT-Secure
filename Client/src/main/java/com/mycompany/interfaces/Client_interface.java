@@ -4,7 +4,10 @@ package com.mycompany.interfaces;
 import com.mycompany.client.network.BrokerClient;
 import com.mycompany.ui.DarkWin11Theme;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
@@ -22,6 +25,7 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
     private String username;
     private String activeTopic = "";
     private String pendingActiveTopic = "";
+    private final Map<String, List<String>> chatHistoryByTopic = new HashMap<>();
 
     /**
      * Construtor padrao usado pelo editor visual. Sem BrokerClient, a tela abre
@@ -359,8 +363,7 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
         if (brokerClient != null) {
             brokerClient.addListener(this);
             brokerClient.requestTopics();
-            brokerClient.downloadPendingMessages();
-            appendStatus("Cliente pronto.");
+            appendStatus("Cliente pronto. Mensagens pendentes serao baixadas ao entrar no topico.");
         } else {
             appendStatus("Cliente nao conectado. Abra pela tela de login.");
         }
@@ -531,19 +534,24 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
                 String removedTopic = activeTopic;
                 activeTopic = "";
                 pendingActiveTopic = "";
+                tela_chat.setText("");
                 appendStatus("Topico removido: " + removedTopic);
             }
         });
     }
 
     /**
-     * Callback chamado quando chega uma publicacao de um topico inscrito.
+     * Callback chamado quando chega uma publicacao do topico que esta aberto no
+     * chat. O broker mantem pendentes as mensagens dos demais topicos inscritos.
      */
     @Override
     public void onMessage(String topic, String sender, String message) {
         SwingUtilities.invokeLater(() -> {
-            tela_chat.append("[" + topic + "] " + sender + ": " + message + System.lineSeparator());
-            tela_chat.setCaretPosition(tela_chat.getDocument().getLength());
+            String line = "[" + topic + "] " + sender + ": " + message;
+            chatHistoryByTopic.computeIfAbsent(topic, ignored -> new ArrayList<>()).add(line);
+            if (topic.equalsIgnoreCase(activeTopic)) {
+                appendChatLine(line);
+            }
         });
     }
 
@@ -559,17 +567,19 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
 
         if ("UNSUBSCRIBE".equals(operation) || "DELETE_TOPIC".equals(operation)) {
             String changedTopic = values.get(0);
-            if (changedTopic.equals(activeTopic)) {
-                SwingUtilities.invokeLater(() -> {
+            SwingUtilities.invokeLater(() -> {
+                chatHistoryByTopic.remove(changedTopic);
+                if (changedTopic.equalsIgnoreCase(activeTopic)) {
                     activeTopic = "";
                     pendingActiveTopic = "";
+                    tela_chat.setText("");
                     appendStatus("Topico ativo removido.");
-                });
-            }
+                }
+            });
             return;
         }
 
-        if ("ENTER_TOPIC".equals(operation) || "SUBSCRIBE".equals(operation)) {
+        if ("ENTER_TOPIC".equals(operation)) {
             String confirmedTopic = values.get(0);
             if (!confirmedTopic.equalsIgnoreCase(pendingActiveTopic)) {
                 return;
@@ -579,6 +589,7 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
                 activeTopic = confirmedTopic;
                 pendingActiveTopic = "";
                 nome_chat.setText("");
+                renderActiveTopicHistory();
                 appendStatus("Topico ativo: " + activeTopic);
             });
         }
@@ -591,7 +602,30 @@ public class Client_interface extends javax.swing.JFrame implements BrokerClient
     public void onDisconnected() {
         activeTopic = "";
         pendingActiveTopic = "";
+        SwingUtilities.invokeLater(() -> tela_chat.setText(""));
         appendStatus("Conexao com o broker encerrada.");
+    }
+
+    /**
+     * Redesenha a area de chat com apenas o historico local do topico ativo.
+     */
+    private void renderActiveTopicHistory() {
+        tela_chat.setText("");
+        List<String> history = chatHistoryByTopic.get(activeTopic);
+        if (history == null) {
+            return;
+        }
+        for (String line : history) {
+            appendChatLine(line);
+        }
+    }
+
+    /**
+     * Acrescenta uma linha de chat e posiciona a rolagem no fim.
+     */
+    private void appendChatLine(String line) {
+        tela_chat.append(line + System.lineSeparator());
+        tela_chat.setCaretPosition(tela_chat.getDocument().getLength());
     }
 
     
