@@ -67,12 +67,12 @@ public final class BrokerVerificationService {
     }
 
     /**
-     * Normaliza o nome do cliente e usa fallback quando o cliente nao informa
-     * um identificador valido.
+     * Normaliza o nome do cliente e usa valor padrao quando o cliente nao
+     * informa um identificador valido.
      */
-    public String verifyClientName(String value, String fallback) {
+    public String verifyClientName(String value, String defaultValue) {
         String clean = value == null ? "" : value.trim();
-        return clean.isEmpty() ? fallback : clean;
+        return clean.isEmpty() ? defaultValue : clean;
     }
 
     /**

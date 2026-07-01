@@ -267,11 +267,15 @@ cd Client
 java -jar target\Client.jar
 ```
 
-Em redes de máquinas virtuais configuradas em modo *bridged*, a descoberta via broadcast UDP pode ser bloqueada. Nesse caso, inicie o cliente informando manualmente o endereço IP do broker:
+Sem argumentos, o cliente usa somente a descoberta UDP para localizar o broker.
+
+Em redes de máquinas virtuais configuradas em modo *bridged*, a descoberta via broadcast UDP pode ser bloqueada. Nesse caso, inicie o cliente em modo manual, informando o endereço IP do broker:
 
 ```powershell
 java -jar target\Client.jar <ip-do-broker> 5000
 ```
+
+O cliente não alterna automaticamente entre UDP e IP. Cada execução usa apenas o modo escolhido: sem argumentos usa UDP; com argumentos usa o IP informado.
 
 Não utilize `127.0.0.1` para acessar o broker a partir de uma máquina virtual, pois esse endereço sempre referencia a própria máquina virtual.
 

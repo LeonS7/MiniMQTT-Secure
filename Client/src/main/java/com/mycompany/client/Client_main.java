@@ -22,9 +22,11 @@ public class Client_main {
     }
 
     /**
-     * Mantem compatibilidade com execucao por linha de comando. Se forem
-     * passados host e porta, esses valores viram fallback quando a descoberta
-     * UDP nao encontrar o broker na rede bridge.
+     * Configura modo manual de conexao por IP.
+     *
+     * Se host e porta forem passados na linha de comando, o cliente usa somente
+     * esse endereco. Sem argumentos, a tela de login usa somente descoberta UDP.
+     * Nao existe alternancia automatica entre os dois modos.
      */
     private static void configureBrokerFromArgs(String[] args) {
         if (args == null || args.length == 0) {

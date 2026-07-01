@@ -238,9 +238,9 @@ public class Login_interface extends javax.swing.JFrame {
     }//GEN-LAST:event_sairMouseClicked
 
     /**
-     * Valida o nome do usuario, descobre o broker via UDP em segundo plano e,
-     * quando encontrado, abre a conexao TCP. O parametro createAccount decide
-     * se a requisicao enviada ao broker sera LOGIN ou REGISTER.
+     * Valida o nome do usuario, resolve o endereco do broker em segundo plano e
+     * abre a conexao TCP. O parametro createAccount decide se a requisicao
+     * enviada ao broker sera LOGIN ou REGISTER.
      */
     private void openClient(boolean createAccount) {
         String username = createAccount ? nome_criarConta.getText().trim() : nome_login.getText().trim();
@@ -272,9 +272,8 @@ public class Login_interface extends javax.swing.JFrame {
         new SwingWorker<ConnectionResult, Void>() {
             @Override
             protected ConnectionResult doInBackground() throws Exception {
-                // Primeiro tenta localizar por UDP; se falhar, usa host/porta passados por argumento.
+                // Usa apenas o modo escolhido: IP manual por argumento ou descoberta UDP.
                 ConnectionTarget target = resolveConnectionTarget();
-                BrokerClient.configureDefaultConnection(target.getHost(), target.getPort());
 
                 // Depois conecta e so retorna quando o broker aceitar a autenticacao.
                 BrokerClient brokerClient = new BrokerClient();
@@ -303,21 +302,21 @@ public class Login_interface extends javax.swing.JFrame {
     }
 
     /**
-     * Resolve o endereco do broker para a apresentacao. Em redes bridge, o
-     * broadcast UDP normalmente funciona; quando a rede bloqueia broadcast, o
-     * usuario ainda pode iniciar o cliente com `java -jar Client.jar host porta`.
+     * Resolve o endereco do broker sem alternancia automatica entre modos.
+     *
+     * Quando o cliente foi iniciado com host/porta por argumento, usa somente
+     * esse endereco. Quando nao ha host configurado, usa somente descoberta UDP.
+     * Se o modo escolhido falhar, a conexao falha e o usuario deve iniciar o
+     * cliente novamente no outro modo.
      */
     private ConnectionTarget resolveConnectionTarget() throws IOException {
-        try {
-            BrokerDiscovery.BrokerAddress discovered = BrokerDiscovery.discover();
-            return new ConnectionTarget(discovered.getHost(), discovered.getPort());
-        } catch (IOException discoveryFailure) {
-            String configuredHost = BrokerClient.getConfiguredHost();
-            if (!configuredHost.isBlank()) {
-                return new ConnectionTarget(configuredHost, BrokerClient.getConfiguredPort());
-            }
-            throw discoveryFailure;
+        String configuredHost = BrokerClient.getConfiguredHost();
+        if (!configuredHost.isBlank()) {
+            return new ConnectionTarget(configuredHost, BrokerClient.getConfiguredPort());
         }
+
+        BrokerDiscovery.BrokerAddress discovered = BrokerDiscovery.discover();
+        return new ConnectionTarget(discovered.getHost(), discovered.getPort());
     }
 
     /**
@@ -365,7 +364,7 @@ public class Login_interface extends javax.swing.JFrame {
     }
 
     /**
-     * Endereco TCP escolhido para a conexao depois da descoberta ou fallback.
+     * Endereco TCP escolhido para a conexao pelo modo ativo.
      */
     private static final class ConnectionTarget {
 

@@ -201,8 +201,8 @@ public final class BrokerClient {
     }
 
     /**
-     * Define o endereco que sera usado por novas conexoes sem parametros. A
-     * descoberta UDP chama este metodo apos localizar o broker.
+     * Define o endereco manual usado quando o cliente e iniciado com host/porta
+     * por argumento. Sem esse valor, a tela de login usa descoberta UDP.
      */
     public static void configureDefaultConnection(String host, int port) {
         configuredHost = clean(host, DEFAULT_HOST);
@@ -210,14 +210,14 @@ public final class BrokerClient {
     }
 
     /**
-     * Retorna o host configurado pela descoberta UDP ou por argumento.
+     * Retorna o host manual configurado por argumento, quando existir.
      */
     public static String getConfiguredHost() {
         return configuredHost;
     }
 
     /**
-     * Retorna a porta TCP configurada pela descoberta UDP ou a porta padrao.
+     * Retorna a porta TCP manual configurada por argumento ou a porta padrao.
      */
     public static int getConfiguredPort() {
         return configuredPort;
@@ -603,11 +603,11 @@ public final class BrokerClient {
     }
 
     /**
-     * Normaliza textos informados pelo usuario e aplica fallback quando vazios.
+     * Normaliza textos informados pelo usuario e aplica valor padrao quando vazios.
      */
-    private static String clean(String value, String fallback) {
+    private static String clean(String value, String defaultValue) {
         String clean = value == null ? "" : value.trim();
-        return clean.isEmpty() ? fallback : clean;
+        return clean.isEmpty() ? defaultValue : clean;
     }
 
     /**
